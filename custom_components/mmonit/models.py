@@ -52,3 +52,12 @@ class MMonitHost:
             2: "green",
             3: "black",
         }.get(self.led, "unknown")
+
+    @property
+    def failed_checks(self) -> list[str]:
+        """Return the names of failed checks for this host."""
+        return [
+            check.name
+            for check in self.checks.values()
+            if check.led in {0, 1}
+        ]

@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    ATTR_FAILED_CHECKS,
     ATTR_HOST_COLOR,
     ATTR_HOST_SUMMARY,
     ATTR_LED,
@@ -107,6 +108,7 @@ class MMonitHostStatusBinarySensor(MMonitHostEntity, BinarySensorEntity):
             return {}
 
         return {
+            ATTR_FAILED_CHECKS: host.failed_checks,
             ATTR_HOST_COLOR: host.color,
             ATTR_HOST_SUMMARY: host.summary,
             ATTR_LED: host.led,
