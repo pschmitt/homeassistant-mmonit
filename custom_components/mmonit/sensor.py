@@ -12,11 +12,15 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     ATTR_CHECK_ID,
     ATTR_CHECK_TYPE,
+    ATTR_DATA_COLLECTED,
     ATTR_EVERY,
     ATTR_EVENTS,
+    ATTR_LAST_EXIT_VALUE,
+    ATTR_LAST_OUTPUT,
     ATTR_LED,
     ATTR_MONITOR_MODE,
     ATTR_MONITOR_STATE,
+    ATTR_PORT_RESPONSE_TIME,
     ATTR_SERVER_NAME,
     ATTR_SERVER_URL,
     ATTR_STATUS_MESSAGE,
@@ -127,7 +131,7 @@ class MMonitCheckSensor(MMonitEntity, SensorEntity):
         if check is None:
             return {}
 
-        return {
+        attributes = {
             ATTR_STATUS_MESSAGE: check.message,
             ATTR_CHECK_ID: check.service_id,
             ATTR_CHECK_TYPE: check.check_type,
@@ -139,3 +143,14 @@ class MMonitCheckSensor(MMonitEntity, SensorEntity):
             ATTR_SERVER_NAME: self.coordinator.server_name,
             ATTR_SERVER_URL: self.coordinator.server_url,
         }
+
+        if check.last_output is not None:
+            attributes[ATTR_LAST_OUTPUT] = check.last_output
+        if check.last_exit_value is not None:
+            attributes[ATTR_LAST_EXIT_VALUE] = check.last_exit_value
+        if check.port_response_time is not None:
+            attributes[ATTR_PORT_RESPONSE_TIME] = check.port_response_time
+        if check.data_collected is not None:
+            attributes[ATTR_DATA_COLLECTED] = check.data_collected
+
+        return attributes

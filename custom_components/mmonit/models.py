@@ -21,6 +21,10 @@ class MMonitCheck:
     monitor_state: int | None
     name_id: int | None
     type_id: int | None
+    last_exit_value: int | None
+    last_output: str | None
+    port_response_time: str | None
+    data_collected: str | None
 
 
 @dataclass(slots=True, frozen=True)

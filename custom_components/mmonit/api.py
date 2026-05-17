@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Mapping
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlparse
 
@@ -110,13 +111,15 @@ class MMonitApiClient:
         self,
         semaphore: asyncio.Semaphore,
         record: Mapping[str, Any],
-    ) -> Any:
+    ) -> tuple[Any, str | None]:
         """Fetch the full detail payload for one host."""
         async with semaphore:
-            return await self._async_request_json(
+            payload, response_date = await self._async_request_json(
                 HOSTS_GET_PATH,
                 params={"id": str(record["id"])},
+                include_response_date=True,
             )
+            return payload, self._normalize_response_date(response_date)
 
     async def _async_request_json(
         self,
@@ -126,9 +129,10 @@ class MMonitApiClient:
         params: Mapping[str, Any] | None = None,
         data: Mapping[str, Any] | None = None,
         retry_with_login: bool = True,
+        include_response_date: bool = False,
     ) -> Any:
         """Perform a request and decode JSON, logging in when needed."""
-        text = await self._async_request_text(
+        text, response_date = await self._async_request_text(
             endpoint,
             method=method,
             params=params,
@@ -145,9 +149,12 @@ class MMonitApiClient:
                     params=params,
                     data=data,
                     retry_with_login=False,
+                    include_response_date=include_response_date,
                 )
             raise MMonitAuthenticationError("Authentication failed")
 
+        if include_response_date:
+            return payload, response_date
         return payload
 
     async def _async_request_text(
@@ -157,7 +164,7 @@ class MMonitApiClient:
         method: str = "GET",
         params: Mapping[str, Any] | None = None,
         data: Mapping[str, Any] | None = None,
-    ) -> str:
+    ) -> tuple[str, str | None]:
         """Perform a request and return the raw response body."""
         url = f"{self._base_url}/{endpoint.lstrip('/')}"
 
@@ -172,7 +179,7 @@ class MMonitApiClient:
                     headers={"Accept": API_ACCEPT},
                 )
                 response.raise_for_status()
-                return await response.text()
+                return await response.text(), response.headers.get("Date")
         except ClientResponseError as err:
             if err.status in {401, 403}:
                 raise MMonitAuthenticationError("Invalid M/Monit credentials") from err
@@ -229,8 +236,13 @@ class MMonitApiClient:
             return payload["records"]
         return payload
 
-    def _normalize_host(self, summary: Mapping[str, Any], detail_payload: Any) -> MMonitHost:
+    def _normalize_host(
+        self,
+        summary: Mapping[str, Any],
+        detail_result: tuple[Any, str | None],
+    ) -> MMonitHost:
         """Normalize one host from the summary and detail payloads."""
+        detail_payload, data_collected = detail_result
         detail_records = self._extract_records(detail_payload)
         host_payload = detail_records.get("host") if isinstance(detail_records, Mapping) else detail_records
         if not isinstance(host_payload, Mapping):
@@ -258,6 +270,10 @@ class MMonitApiClient:
                 monitor_state=self._as_int(service.get("monitorstate")),
                 name_id=self._as_int(service.get("nameid")),
                 type_id=self._as_int(service.get("typeid")),
+                last_exit_value=self._extract_last_exit_value(service),
+                last_output=self._extract_status_message(service) or None,
+                port_response_time=self._extract_port_response_time(service),
+                data_collected=data_collected,
             )
 
         return MMonitHost(
@@ -286,6 +302,103 @@ class MMonitApiClient:
             if item.get("type") == 35:
                 return str(item.get("value") or "").strip()
         return ""
+
+    def _extract_last_exit_value(self, service: Mapping[str, Any]) -> int | None:
+        """Extract the last exit value from a service payload."""
+        statistic = self._get_statistic(service, 24)
+        if statistic is None:
+            return None
+        return self._as_int(statistic.get("value"))
+
+    def _extract_port_response_time(self, service: Mapping[str, Any]) -> str | None:
+        """Extract and format the port response time from a service payload."""
+        statistic = self._get_statistic(service, 15)
+        if statistic is None:
+            return None
+
+        response_time_seconds = self._as_float(statistic.get("value"))
+        if response_time_seconds is None:
+            return None
+
+        descriptor = self._as_str(statistic.get("descriptor")) or ""
+        target, protocol, transport = self._parse_port_descriptor(descriptor)
+        tls_days = self._extract_tls_certificate_days(service)
+
+        parts = [f"{response_time_seconds * 1000:.3f} ms"]
+        if target:
+            parts.append(f"to {target}")
+
+        transport_label = transport
+        if transport == "TCP":
+            transport_label = "TCP/IP"
+        elif transport == "UDP":
+            transport_label = "UDP/IP"
+
+        if transport_label:
+            if tls_days is not None:
+                parts.append(
+                    f"type {transport_label} using TLS (certificate valid for {tls_days} days)"
+                )
+            else:
+                parts.append(f"type {transport_label}")
+
+        if protocol:
+            parts.append(f"protocol {protocol}")
+
+        return " ".join(parts)
+
+    def _extract_tls_certificate_days(self, service: Mapping[str, Any]) -> int | None:
+        """Extract the TLS certificate validity window in days."""
+        statistic = self._get_statistic(service, 75)
+        if statistic is None:
+            return None
+        return self._as_int(statistic.get("value"))
+
+    @staticmethod
+    def _get_statistic(
+        service: Mapping[str, Any],
+        statistic_type: int,
+    ) -> Mapping[str, Any] | None:
+        """Return one statistic by type."""
+        statistics = service.get("statistics")
+        if not isinstance(statistics, list):
+            return None
+
+        for item in statistics:
+            if not isinstance(item, Mapping):
+                continue
+            if item.get("type") == statistic_type:
+                return item
+        return None
+
+    @staticmethod
+    def _parse_port_descriptor(
+        descriptor: str,
+    ) -> tuple[str | None, str | None, str | None]:
+        """Parse a port response descriptor into target, protocol, and transport."""
+        if not descriptor:
+            return None, None, None
+
+        if " [" not in descriptor or not descriptor.endswith("]"):
+            return descriptor, None, None
+
+        target, suffix = descriptor.rsplit(" [", 1)
+        details = suffix[:-1]
+        if "/" not in details:
+            return target, details or None, None
+
+        protocol, transport = details.split("/", 1)
+        return target, protocol or None, transport or None
+
+    @staticmethod
+    def _normalize_response_date(value: str | None) -> str | None:
+        """Normalize an HTTP response date to an ISO timestamp."""
+        if not value:
+            return None
+        try:
+            return parsedate_to_datetime(value).isoformat()
+        except (TypeError, ValueError, IndexError):
+            return value
 
     @staticmethod
     def _as_int(value: Any) -> int | None:
