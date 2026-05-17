@@ -19,7 +19,7 @@
 
 ### Manual
 
-Copy this repository into:
+Copy `custom_components/mmonit` from this repository into:
 
 ```text
 custom_components/mmonit
@@ -41,4 +41,3 @@ Each configured server creates sensor entities for all discovered checks.
 - **Entity**: one sensor per host check
 - **State**: the M/Monit check status, such as `Status ok` or `Running`
 - **Attribute**: `status_message` contains the detailed check output
-

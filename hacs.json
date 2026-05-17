@@ -1,10 +1,8 @@
 {
   "name": "M/Monit",
-  "content_in_root": true,
   "domains": [
     "mmonit"
   ],
   "homeassistant": "2025.1.0",
   "render_readme": true
 }
-
