@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from urllib.parse import urlencode
 
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -75,6 +76,16 @@ class MMonitHostEntity(CoordinatorEntity[MMonitDataUpdateCoordinator]):
             configuration_url=self.coordinator.server_url,
         )
 
+    @property
+    def host_url(self) -> str | None:
+        """Return the M/Monit detail URL for the current host."""
+        host = self.host
+        if host is None:
+            return None
+
+        query = urlencode({"id": host.host_id})
+        return f"{self.coordinator.server_url}/status/hosts/detail?{query}"
+
 
 class MMonitEntity(MMonitHostEntity):
     """Base M/Monit check entity."""
@@ -101,3 +112,24 @@ class MMonitEntity(MMonitHostEntity):
     def available(self) -> bool:
         """Return whether the entity has current data."""
         return self.coordinator.last_update_success and self.check is not None
+
+    @property
+    def events_url(self) -> str | None:
+        """Return the M/Monit events URL for the current check."""
+        host = self.host
+        check = self.check
+        if host is None or check is None or check.name_id is None:
+            return None
+
+        host_name = host.hostname or host.name
+        if not host_name:
+            return None
+
+        query = urlencode(
+            {
+                "reset": "true",
+                "host": host_name,
+                "servicenameid": check.name_id,
+            }
+        )
+        return f"{self.coordinator.server_url}/reports/events/?{query}"

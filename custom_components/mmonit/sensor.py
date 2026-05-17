@@ -13,6 +13,7 @@ from .const import (
     ATTR_CHECK_ID,
     ATTR_CHECK_TYPE,
     ATTR_DATA_COLLECTED,
+    ATTR_EVENTS_URL,
     ATTR_EVERY,
     ATTR_EVENTS,
     ATTR_LAST_EXIT_VALUE,
@@ -152,5 +153,7 @@ class MMonitCheckSensor(MMonitEntity, SensorEntity):
             attributes[ATTR_PORT_RESPONSE_TIME] = check.port_response_time
         if check.data_collected is not None:
             attributes[ATTR_DATA_COLLECTED] = check.data_collected
+        if self.events_url is not None:
+            attributes[ATTR_EVENTS_URL] = self.events_url
 
         return attributes
