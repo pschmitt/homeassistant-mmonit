@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add M/Monit server",
+        "description": "Connect Home Assistant to an M/Monit server.",
+        "data": {
+          "url": "Server URL",
+          "name": "Name",
+          "username": "Username",
+          "password": "Password",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the M/Monit server.",
+      "invalid_auth": "Invalid username or password.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This M/Monit server is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "M/Monit options",
+        "data": {
+          "scan_interval": "Update interval in seconds"
+        }
+      }
+    }
+  }
+}
