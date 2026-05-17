@@ -8,12 +8,13 @@ import aiohttp
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_USERNAME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .api import MMonitApiClient
 from .const import CONF_VERIFY_SSL, DOMAIN, PLATFORMS
 from .coordinator import MMonitDataUpdateCoordinator
+from .registry import async_cleanup_registry
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
@@ -45,6 +46,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     }
 
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
+    async_cleanup_registry(hass, config_entry, coordinator.data)
+
+    @callback
+    def async_cleanup_listener() -> None:
+        """Remove stale entities and devices after coordinator updates."""
+        async_cleanup_registry(hass, config_entry, coordinator.data)
+
+    config_entry.async_on_unload(coordinator.async_add_listener(async_cleanup_listener))
     config_entry.async_on_unload(config_entry.add_update_listener(async_update_listener))
     return True
 

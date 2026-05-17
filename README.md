@@ -5,6 +5,7 @@
 - supports multiple M/Monit servers through config entries,
 - auto-discovers hosts from every configured server,
 - creates one Home Assistant device per monitored host,
+- creates one host-level problem binary sensor per monitored host,
 - creates one sensor entity per M/Monit check,
 - stores the check state in the entity state and the detailed check output in the `status_message` attribute.
 
@@ -38,6 +39,7 @@ Each configured server creates sensor entities for all discovered checks.
 ## Entity model
 
 - **Device**: one per M/Monit host
+- **Entity**: one binary sensor per host for the overall host status
 - **Entity**: one sensor per host check
 - **State**: the M/Monit check status, such as `Status ok` or `Running`
 - **Attribute**: `status_message` contains the detailed check output

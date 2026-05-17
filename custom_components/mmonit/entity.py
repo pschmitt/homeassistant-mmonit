@@ -28,8 +28,8 @@ def iter_host_device_identifiers(
     }
 
 
-class MMonitEntity(CoordinatorEntity[MMonitDataUpdateCoordinator]):
-    """Base M/Monit entity."""
+class MMonitHostEntity(CoordinatorEntity[MMonitDataUpdateCoordinator]):
+    """Base M/Monit host entity."""
 
     _attr_has_entity_name = True
 
@@ -37,12 +37,10 @@ class MMonitEntity(CoordinatorEntity[MMonitDataUpdateCoordinator]):
         self,
         coordinator: MMonitDataUpdateCoordinator,
         host_id: str,
-        check_id: str,
     ) -> None:
         """Initialize the entity."""
         super().__init__(coordinator)
         self._host_id = host_id
-        self._check_id = check_id
 
     @property
     def host(self) -> MMonitHost | None:
@@ -50,17 +48,9 @@ class MMonitEntity(CoordinatorEntity[MMonitDataUpdateCoordinator]):
         return self.coordinator.data.get(self._host_id)
 
     @property
-    def check(self) -> MMonitCheck | None:
-        """Return the current check payload."""
-        host = self.host
-        if host is None:
-            return None
-        return host.checks.get(self._check_id)
-
-    @property
     def available(self) -> bool:
-        """Return whether the entity has current data."""
-        return self.coordinator.last_update_success and self.check is not None
+        """Return whether the entity has current host data."""
+        return self.coordinator.last_update_success and self.host is not None
 
     @property
     def device_info(self) -> DeviceInfo | None:
@@ -84,3 +74,30 @@ class MMonitEntity(CoordinatorEntity[MMonitDataUpdateCoordinator]):
             model="Monitored Host",
             configuration_url=self.coordinator.server_url,
         )
+
+
+class MMonitEntity(MMonitHostEntity):
+    """Base M/Monit check entity."""
+
+    def __init__(
+        self,
+        coordinator: MMonitDataUpdateCoordinator,
+        host_id: str,
+        check_id: str,
+    ) -> None:
+        """Initialize the entity."""
+        super().__init__(coordinator, host_id)
+        self._check_id = check_id
+
+    @property
+    def check(self) -> MMonitCheck | None:
+        """Return the current check payload."""
+        host = self.host
+        if host is None:
+            return None
+        return host.checks.get(self._check_id)
+
+    @property
+    def available(self) -> bool:
+        """Return whether the entity has current data."""
+        return self.coordinator.last_update_success and self.check is not None

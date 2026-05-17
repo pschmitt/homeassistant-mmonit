@@ -5,7 +5,7 @@ from __future__ import annotations
 from homeassistant.const import Platform
 
 DOMAIN = "mmonit"
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
 CONF_VERIFY_SSL = "verify_ssl"
 
 DEFAULT_SCAN_INTERVAL = 120
@@ -20,6 +20,8 @@ ATTR_EVERY = "every"
 ATTR_LED = "led"
 ATTR_MONITOR_MODE = "monitor_mode"
 ATTR_MONITOR_STATE = "monitor_state"
+ATTR_HOST_COLOR = "host_color"
+ATTR_HOST_SUMMARY = "host_summary"
 ATTR_SERVER_NAME = "server_name"
 ATTR_SERVER_URL = "server_url"
 ATTR_STATUS_MESSAGE = "status_message"
