@@ -6,8 +6,8 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
@@ -24,7 +24,16 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import MMonitDataUpdateCoordinator
-from .entity import MMonitEntity
+from .entity import MMonitEntity, iter_host_device_identifiers
+
+
+def _get_check_unique_id(
+    config_entry: ConfigEntry,
+    host_id: str,
+    check_id: str,
+) -> str:
+    """Return the stable unique ID for one M/Monit check entity."""
+    return f"{config_entry.entry_id}_{host_id}_{check_id}"
 
 
 async def async_setup_entry(
@@ -33,18 +42,26 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up M/Monit sensors from a config entry."""
-    coordinator: MMonitDataUpdateCoordinator = hass.data[DOMAIN][config_entry.entry_id]["coordinator"]
+    coordinator: MMonitDataUpdateCoordinator = hass.data[DOMAIN][config_entry.entry_id][
+        "coordinator"
+    ]
     known_entities: set[str] = set()
 
     @callback
     def async_add_missing_entities() -> None:
+        entity_registry = er.async_get(hass)
+        device_registry = dr.async_get(hass)
+        current_unique_ids: set[str] = set()
         new_entities: list[MMonitCheckSensor] = []
 
         for host in coordinator.data.values():
             for check in host.checks.values():
-                entity_unique_id = (
-                    f"{config_entry.entry_id}_{host.host_id}_{check.service_id}"
+                entity_unique_id = _get_check_unique_id(
+                    config_entry,
+                    host.host_id,
+                    check.service_id,
                 )
+                current_unique_ids.add(entity_unique_id)
                 if entity_unique_id in known_entities:
                     continue
 
@@ -57,6 +74,43 @@ async def async_setup_entry(
                         unique_id=entity_unique_id,
                     )
                 )
+
+        for entity_entry in er.async_entries_for_config_entry(
+            entity_registry,
+            config_entry.entry_id,
+        ):
+            if entity_entry.platform != DOMAIN:
+                continue
+            if not entity_entry.unique_id:
+                continue
+            if entity_entry.unique_id in current_unique_ids:
+                continue
+            if not entity_entry.unique_id.startswith(f"{config_entry.entry_id}_"):
+                continue
+            entity_registry.async_remove(entity_entry.entity_id)
+
+        known_entities.clear()
+        known_entities.update(current_unique_ids)
+
+        current_host_identifiers = iter_host_device_identifiers(
+            config_entry.entry_id,
+            coordinator.data.keys(),
+        )
+        for device_entry in dr.async_entries_for_config_entry(
+            device_registry,
+            config_entry.entry_id,
+        ):
+            mmonit_identifiers = {
+                identifier
+                for identifier in device_entry.identifiers
+                if identifier[0] == DOMAIN
+                and identifier[1].startswith(f"{config_entry.entry_id}:")
+            }
+            if not mmonit_identifiers:
+                continue
+            if any(identifier in current_host_identifiers for identifier in mmonit_identifiers):
+                continue
+            device_registry.async_remove_device(device_entry.id)
 
         if new_entities:
             async_add_entities(new_entities)
@@ -130,4 +184,3 @@ class MMonitCheckSensor(MMonitEntity, SensorEntity):
             ATTR_SERVER_NAME: self.coordinator.server_name,
             ATTR_SERVER_URL: self.coordinator.server_url,
         }
-

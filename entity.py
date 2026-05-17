@@ -2,12 +2,30 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import MMonitDataUpdateCoordinator
 from .models import MMonitCheck, MMonitHost
+
+
+def get_host_device_identifier(entry_id: str, host_id: str) -> str:
+    """Return the stable device identifier for one M/Monit host."""
+    return f"{entry_id}:{host_id}"
+
+
+def iter_host_device_identifiers(
+    entry_id: str,
+    host_ids: Iterable[str],
+) -> set[tuple[str, str]]:
+    """Return the device identifiers for a collection of host IDs."""
+    return {
+        (DOMAIN, get_host_device_identifier(entry_id, host_id))
+        for host_id in host_ids
+    }
 
 
 class MMonitEntity(CoordinatorEntity[MMonitDataUpdateCoordinator]):
@@ -52,10 +70,17 @@ class MMonitEntity(CoordinatorEntity[MMonitDataUpdateCoordinator]):
             return None
 
         return DeviceInfo(
-            identifiers={(DOMAIN, f"{self.coordinator.config_entry.entry_id}:{host.host_id}")},
+            identifiers={
+                (
+                    DOMAIN,
+                    get_host_device_identifier(
+                        self.coordinator.config_entry.entry_id,
+                        host.host_id,
+                    ),
+                )
+            },
             name=host.display_name,
             manufacturer="M/Monit",
             model="Monitored Host",
             configuration_url=self.coordinator.server_url,
         )
-
