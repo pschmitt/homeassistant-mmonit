@@ -286,6 +286,16 @@ class MMonitApiClient:
             memory=self._as_float(summary.get("mem")),
             heartbeat=self._as_int(summary.get("heartbeat")),
             events=self._as_int(summary.get("events")),
+            uptime=self._as_str(host_payload.get("uptime")) or self._as_str(host_payload.get("monit", {}).get("uptime")),
+            cpu_count=self._as_int(host_payload.get("cpu", {}).get("count")),
+            memory_total_bytes=self._kilobytes_to_bytes(host_payload.get("memory", {}).get("size")),
+            swap_total_bytes=self._kilobytes_to_bytes(host_payload.get("swap", {}).get("size")),
+            platform_name=self._as_str(host_payload.get("platform", {}).get("name")),
+            platform_release=self._as_str(host_payload.get("platform", {}).get("release")),
+            platform_version=self._as_str(host_payload.get("platform", {}).get("version")),
+            platform_machine=self._as_str(host_payload.get("platform", {}).get("machine")),
+            monit_version=self._as_str(host_payload.get("monit", {}).get("version")),
+            monit_uptime=self._as_str(host_payload.get("monit", {}).get("uptime")),
             checks=checks,
         )
 
@@ -426,3 +436,10 @@ class MMonitApiClient:
         if value in (None, ""):
             return None
         return str(value)
+
+    def _kilobytes_to_bytes(self, value: Any) -> int | None:
+        """Convert a kibibyte value to bytes when possible."""
+        kibibytes = self._as_int(value)
+        if kibibytes is None:
+            return None
+        return kibibytes * 1024

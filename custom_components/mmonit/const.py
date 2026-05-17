@@ -33,6 +33,23 @@ ATTR_SERVER_NAME = "server_name"
 ATTR_SERVER_URL = "server_url"
 ATTR_STATUS_MESSAGE = "status_message"
 
+HOST_SENSOR_CPU_COUNT = "host_cpu_count"
+HOST_SENSOR_CPU_USAGE = "host_cpu_usage"
+HOST_SENSOR_MEMORY_TOTAL = "host_memory_total"
+HOST_SENSOR_MEMORY_USAGE = "host_memory_usage"
+HOST_SENSOR_PLATFORM = "host_platform"
+HOST_SENSOR_SWAP_TOTAL = "host_swap_total"
+HOST_SENSOR_UPTIME = "host_uptime"
+HOST_SENSOR_KEYS: tuple[str, ...] = (
+    HOST_SENSOR_CPU_USAGE,
+    HOST_SENSOR_MEMORY_USAGE,
+    HOST_SENSOR_UPTIME,
+    HOST_SENSOR_CPU_COUNT,
+    HOST_SENSOR_MEMORY_TOTAL,
+    HOST_SENSOR_SWAP_TOTAL,
+    HOST_SENSOR_PLATFORM,
+)
+
 API_ACCEPT = "application/json"
 LOGIN_PATH = "z_security_check"
 HOSTS_LIST_PATH = "api/2/status/hosts/list"

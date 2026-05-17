@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import PERCENTAGE, UnitOfInformation
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
@@ -26,10 +30,79 @@ from .const import (
     ATTR_SERVER_URL,
     ATTR_STATUS_MESSAGE,
     DOMAIN,
+    HOST_SENSOR_CPU_COUNT,
+    HOST_SENSOR_CPU_USAGE,
+    HOST_SENSOR_MEMORY_TOTAL,
+    HOST_SENSOR_MEMORY_USAGE,
+    HOST_SENSOR_PLATFORM,
+    HOST_SENSOR_SWAP_TOTAL,
+    HOST_SENSOR_UPTIME,
 )
 from .coordinator import MMonitDataUpdateCoordinator
-from .entity import MMonitEntity
-from .registry import get_check_unique_id
+from .entity import MMonitEntity, MMonitHostEntity
+from .registry import get_check_unique_id, get_host_metric_unique_id
+
+
+@dataclass(frozen=True, kw_only=True)
+class MMonitHostSensorDescription(SensorEntityDescription):
+    """Description of a host-level M/Monit sensor."""
+
+    value_attr: str
+
+
+HOST_SENSOR_DESCRIPTIONS: tuple[MMonitHostSensorDescription, ...] = (
+    MMonitHostSensorDescription(
+        key=HOST_SENSOR_CPU_USAGE,
+        name="CPU Usage",
+        icon="mdi:cpu-64-bit",
+        native_unit_of_measurement=PERCENTAGE,
+        value_attr="cpu",
+    ),
+    MMonitHostSensorDescription(
+        key=HOST_SENSOR_MEMORY_USAGE,
+        name="Memory Usage",
+        icon="mdi:memory",
+        native_unit_of_measurement=PERCENTAGE,
+        value_attr="memory",
+    ),
+    MMonitHostSensorDescription(
+        key=HOST_SENSOR_UPTIME,
+        name="Uptime",
+        icon="mdi:clock-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_attr="uptime",
+    ),
+    MMonitHostSensorDescription(
+        key=HOST_SENSOR_CPU_COUNT,
+        name="CPU Count",
+        icon="mdi:chip",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_attr="cpu_count",
+    ),
+    MMonitHostSensorDescription(
+        key=HOST_SENSOR_MEMORY_TOTAL,
+        name="Memory Total",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_attr="memory_total_bytes",
+    ),
+    MMonitHostSensorDescription(
+        key=HOST_SENSOR_SWAP_TOTAL,
+        name="Swap Total",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_attr="swap_total_bytes",
+    ),
+    MMonitHostSensorDescription(
+        key=HOST_SENSOR_PLATFORM,
+        name="Platform",
+        icon="mdi:desktop-classic",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_attr="platform_display",
+    ),
+)
 
 
 async def async_setup_entry(
@@ -46,7 +119,28 @@ async def async_setup_entry(
     @callback
     def async_add_missing_entities() -> None:
         current_unique_ids: set[str] = set()
-        new_entities: list[MMonitCheckSensor] = []
+        new_entities: list[SensorEntity] = []
+
+        for host in coordinator.data.values():
+            for description in HOST_SENSOR_DESCRIPTIONS:
+                entity_unique_id = get_host_metric_unique_id(
+                    config_entry.entry_id,
+                    host.host_id,
+                    description.key,
+                )
+                current_unique_ids.add(entity_unique_id)
+                if entity_unique_id in known_entities:
+                    continue
+
+                known_entities.add(entity_unique_id)
+                new_entities.append(
+                    MMonitHostSensor(
+                        coordinator=coordinator,
+                        host_id=host.host_id,
+                        description=description,
+                        unique_id=entity_unique_id,
+                    )
+                )
 
         for host in coordinator.data.values():
             for check in host.checks.values():
@@ -79,6 +173,55 @@ async def async_setup_entry(
     config_entry.async_on_unload(
         coordinator.async_add_listener(async_add_missing_entities)
     )
+
+
+class MMonitHostSensor(MMonitHostEntity, SensorEntity):
+    """Sensor representing one host-level M/Monit metric."""
+
+    entity_description: MMonitHostSensorDescription
+
+    def __init__(
+        self,
+        coordinator: MMonitDataUpdateCoordinator,
+        host_id: str,
+        description: MMonitHostSensorDescription,
+        unique_id: str,
+    ) -> None:
+        """Initialize the host sensor."""
+        super().__init__(coordinator, host_id)
+        self.entity_description = description
+        self._attr_unique_id = unique_id
+
+    @property
+    def native_value(self) -> str | float | int | None:
+        """Return the current host metric value."""
+        host = self.host
+        if host is None:
+            return None
+        return getattr(host, self.entity_description.value_attr)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra attributes for host sensors that need them."""
+        host = self.host
+        if host is None or self.entity_description.key != HOST_SENSOR_PLATFORM:
+            return {}
+
+        attributes = {
+            ATTR_SERVER_NAME: self.coordinator.server_name,
+            ATTR_SERVER_URL: self.coordinator.server_url,
+        }
+        if host.platform_release is not None:
+            attributes["platform_release"] = host.platform_release
+        if host.platform_version is not None:
+            attributes["platform_version"] = host.platform_version
+        if host.platform_machine is not None:
+            attributes["platform_machine"] = host.platform_machine
+        if host.monit_version is not None:
+            attributes["monit_version"] = host.monit_version
+        if host.monit_uptime is not None:
+            attributes["monit_uptime"] = host.monit_uptime
+        return attributes
 
 
 class MMonitCheckSensor(MMonitEntity, SensorEntity):

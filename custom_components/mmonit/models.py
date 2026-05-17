@@ -40,6 +40,16 @@ class MMonitHost:
     memory: float | None
     heartbeat: int | None
     events: int | None
+    uptime: str | None
+    cpu_count: int | None
+    memory_total_bytes: int | None
+    swap_total_bytes: int | None
+    platform_name: str | None
+    platform_release: str | None
+    platform_version: str | None
+    platform_machine: str | None
+    monit_version: str | None
+    monit_uptime: str | None
     checks: dict[str, MMonitCheck]
 
     @property
@@ -65,3 +75,12 @@ class MMonitHost:
             for check in self.checks.values()
             if check.led in {0, 1}
         ]
+
+    @property
+    def platform_display(self) -> str | None:
+        """Return a compact platform label."""
+        if not self.platform_name and not self.platform_release:
+            return None
+        if self.platform_name and self.platform_release:
+            return f"{self.platform_name} {self.platform_release}"
+        return self.platform_name or self.platform_release
