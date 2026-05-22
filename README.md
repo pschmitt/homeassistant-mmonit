@@ -43,3 +43,7 @@ Each configured server creates sensor entities for all discovered checks.
 - **Entity**: one sensor per host check
 - **State**: the M/Monit check status, such as `Status ok` or `Running`
 - **Attribute**: `status_message` contains the detailed check output
+
+## Branding
+
+This repository bundles M/Monit logo assets. M/Monit and related marks belong to their respective owners. The integration code is GPL-3.0, but the bundled third-party logos are not relicensed under GPL.
