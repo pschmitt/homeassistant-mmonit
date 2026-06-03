@@ -13,10 +13,11 @@
 
 ### HACS
 
-1. Open HACS.
-2. Add `https://github.com/pschmitt/homeassistant-mmonit` as a custom repository of type **Integration**.
-3. Install **M/Monit**.
-4. Restart Home Assistant.
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=pschmitt&repository=homeassistant-mmonit&category=integration)
+
+1. Click the badge above, or open HACS and add `https://github.com/pschmitt/homeassistant-mmonit` as a custom repository of type **Integration**.
+2. Install **M/Monit**.
+3. Restart Home Assistant.
 
 ### Manual
 
