@@ -11,6 +11,16 @@
           "password": "Password",
           "verify_ssl": "Verify SSL certificate"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure M/Monit server",
+        "description": "Update the connection settings. Leave the password empty to keep the current one.",
+        "data": {
+          "url": "Server URL",
+          "username": "Username",
+          "password": "Password",
+          "verify_ssl": "Verify SSL certificate"
+        }
       }
     },
     "error": {
@@ -19,7 +29,8 @@
       "unknown": "Unexpected error."
     },
     "abort": {
-      "already_configured": "This M/Monit server is already configured."
+      "already_configured": "This M/Monit server is already configured.",
+      "reconfigure_successful": "Configuration updated."
     }
   },
   "options": {
