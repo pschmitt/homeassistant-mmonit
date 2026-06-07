@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
-from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfInformation
 from homeassistant.core import HomeAssistant, callback
@@ -39,7 +39,7 @@ from .const import (
     HOST_SENSOR_UPTIME,
 )
 from .coordinator import MMonitDataUpdateCoordinator
-from .entity import MMonitEntity, MMonitHostEntity
+from .entity import MMonitEntity, MMonitHostEntity, suggest_entity_id
 from .registry import get_check_unique_id, get_host_metric_unique_id
 
 
@@ -56,6 +56,8 @@ HOST_SENSOR_DESCRIPTIONS: tuple[MMonitHostSensorDescription, ...] = (
         name="CPU Usage",
         icon="mdi:cpu-64-bit",
         native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_attr="cpu",
     ),
     MMonitHostSensorDescription(
@@ -63,6 +65,8 @@ HOST_SENSOR_DESCRIPTIONS: tuple[MMonitHostSensorDescription, ...] = (
         name="Memory Usage",
         icon="mdi:memory",
         native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_attr="memory",
     ),
     MMonitHostSensorDescription(
@@ -76,6 +80,7 @@ HOST_SENSOR_DESCRIPTIONS: tuple[MMonitHostSensorDescription, ...] = (
         key=HOST_SENSOR_CPU_COUNT,
         name="CPU Count",
         icon="mdi:chip",
+        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_attr="cpu_count",
     ),
@@ -84,6 +89,7 @@ HOST_SENSOR_DESCRIPTIONS: tuple[MMonitHostSensorDescription, ...] = (
         name="Memory Total",
         device_class=SensorDeviceClass.DATA_SIZE,
         native_unit_of_measurement=UnitOfInformation.BYTES,
+        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_attr="memory_total_bytes",
     ),
@@ -92,6 +98,7 @@ HOST_SENSOR_DESCRIPTIONS: tuple[MMonitHostSensorDescription, ...] = (
         name="Swap Total",
         device_class=SensorDeviceClass.DATA_SIZE,
         native_unit_of_measurement=UnitOfInformation.BYTES,
+        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_attr="swap_total_bytes",
     ),
@@ -191,6 +198,9 @@ class MMonitHostSensor(MMonitHostEntity, SensorEntity):
         super().__init__(coordinator, host_id)
         self.entity_description = description
         self._attr_unique_id = unique_id
+        self.entity_id = suggest_entity_id(
+            "sensor", coordinator, host_id, str(description.name)
+        )
 
     @property
     def native_value(self) -> str | float | int | None:
@@ -237,6 +247,11 @@ class MMonitCheckSensor(MMonitEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator, host_id, check_id)
         self._attr_unique_id = unique_id
+        host = coordinator.data.get(host_id)
+        check = host.checks.get(check_id) if host else None
+        self.entity_id = suggest_entity_id(
+            "sensor", coordinator, host_id, check.name if check else check_id
+        )
 
     @property
     def name(self) -> str | None:

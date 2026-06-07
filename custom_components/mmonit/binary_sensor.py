@@ -23,7 +23,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import MMonitDataUpdateCoordinator
-from .entity import MMonitHostEntity
+from .entity import MMonitHostEntity, suggest_entity_id
 from .registry import get_host_status_unique_id
 
 
@@ -87,6 +87,9 @@ class MMonitHostStatusBinarySensor(MMonitHostEntity, BinarySensorEntity):
         """Initialize the binary sensor."""
         super().__init__(coordinator, host_id)
         self._attr_unique_id = unique_id
+        self.entity_id = suggest_entity_id(
+            "binary_sensor", coordinator, host_id, "status"
+        )
 
     @property
     def name(self) -> str:

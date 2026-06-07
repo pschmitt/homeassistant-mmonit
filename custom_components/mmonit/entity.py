@@ -7,8 +7,9 @@ from urllib.parse import urlencode
 
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import slugify
 
-from .const import DOMAIN
+from .const import CONF_MODE, DOMAIN, MODE_MMONIT
 from .coordinator import MMonitDataUpdateCoordinator
 from .models import MMonitCheck, MMonitHost
 
@@ -16,6 +17,23 @@ from .models import MMonitCheck, MMonitHost
 def get_host_device_identifier(entry_id: str, host_id: str) -> str:
     """Return the stable device identifier for one M/Monit host."""
     return f"{entry_id}:{host_id}"
+
+
+def suggest_entity_id(
+    domain: str,
+    coordinator: MMonitDataUpdateCoordinator,
+    host_id: str,
+    suffix: str,
+) -> str:
+    """Suggest a mode-prefixed entity id (monit_* or mmonit_*).
+
+    Only honored when the entity is first registered; existing registry
+    entries keep their entity ids.
+    """
+    mode = coordinator.config_entry.data.get(CONF_MODE, MODE_MMONIT)
+    host = coordinator.data.get(host_id)
+    host_name = host.display_name if host else host_id
+    return f"{domain}.{slugify(f'{mode} {host_name} {suffix}')}"
 
 
 def iter_host_device_identifiers(
