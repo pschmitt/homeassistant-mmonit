@@ -15,17 +15,18 @@ from .api import MMonitApiClient
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 from .exceptions import MMonitApiError, MMonitAuthenticationError
 from .models import MMonitHost
+from .monit_api import MonitApiClient
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class MMonitDataUpdateCoordinator(DataUpdateCoordinator[dict[str, MMonitHost]]):
-    """Coordinate fetching all hosts and checks for one M/Monit server."""
+    """Coordinate fetching all hosts and checks for one M/Monit or Monit server."""
 
     def __init__(
         self,
         hass: HomeAssistant,
-        client: MMonitApiClient,
+        client: MMonitApiClient | MonitApiClient,
         config_entry: ConfigEntry,
     ) -> None:
         """Initialize the coordinator."""

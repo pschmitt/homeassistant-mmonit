@@ -12,9 +12,30 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .api import MMonitApiClient
-from .const import CONF_VERIFY_SSL, DOMAIN, PLATFORMS
+from .const import CONF_MODE, CONF_VERIFY_SSL, DOMAIN, MODE_MMONIT, MODE_MONIT, PLATFORMS
 from .coordinator import MMonitDataUpdateCoordinator
+from .monit_api import MonitApiClient
 from .registry import async_cleanup_registry
+
+
+def create_client(
+    hass: HomeAssistant,
+    data: dict[str, Any],
+) -> MMonitApiClient | MonitApiClient:
+    """Create the right API client for the configured mode."""
+    mode = data.get(CONF_MODE, MODE_MMONIT)
+    session = async_create_clientsession(
+        hass,
+        verify_ssl=data[CONF_VERIFY_SSL],
+        cookie_jar=aiohttp.CookieJar(unsafe=True),
+    )
+    client_class = MonitApiClient if mode == MODE_MONIT else MMonitApiClient
+    return client_class(
+        session=session,
+        base_url=data[CONF_URL],
+        username=data[CONF_USERNAME],
+        password=data[CONF_PASSWORD],
+    )
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
@@ -26,17 +47,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Set up M/Monit from a config entry."""
-    session = async_create_clientsession(
-        hass,
-        verify_ssl=config_entry.data[CONF_VERIFY_SSL],
-        cookie_jar=aiohttp.CookieJar(unsafe=True),
-    )
-    client = MMonitApiClient(
-        session=session,
-        base_url=config_entry.data[CONF_URL],
-        username=config_entry.data[CONF_USERNAME],
-        password=config_entry.data[CONF_PASSWORD],
-    )
+    client = create_client(hass, dict(config_entry.data))
     coordinator = MMonitDataUpdateCoordinator(hass, client, config_entry)
     await coordinator.async_config_entry_first_refresh()
 

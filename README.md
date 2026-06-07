@@ -1,12 +1,16 @@
 # M/Monit for Home Assistant
 
-`mmonit` is a Home Assistant custom integration for [M/Monit](https://mmonit.com/) that:
+`mmonit` is a Home Assistant custom integration for [M/Monit](https://mmonit.com/) and
+[Monit](https://mmonit.com/monit/) that:
 
-- supports multiple M/Monit servers through config entries,
-- auto-discovers hosts from every configured server,
+- supports two modes per config entry:
+  - **M/Monit (centralized)**: talks to an M/Monit server and auto-discovers all hosts it collects,
+  - **Monit (direct)**: talks directly to the embedded HTTP interface of a single Monit instance —
+    no M/Monit server required,
+- supports multiple servers/agents through config entries,
 - creates one Home Assistant device per monitored host,
 - creates one host-level problem binary sensor per monitored host,
-- creates one sensor entity per M/Monit check,
+- creates one sensor entity per check,
 - stores the check state in the entity state and the detailed check output in the `status_message` attribute.
 
 ## Installation
@@ -33,9 +37,20 @@ The integration is configured from the Home Assistant UI:
 
 1. Go to **Settings -> Devices & services**.
 2. Add **M/Monit**.
-3. Enter the M/Monit URL, username, and password.
+3. Pick the mode:
+   - **M/Monit server (centralized)**: enter the M/Monit URL, username, and password.
+   - **Monit agent (direct)**: enter the URL of the Monit instance's embedded HTTP
+     interface (e.g. `http://myhost:2812`) and the credentials of an
+     `allow user:password` entry from its `set httpd` block.
 
-Each configured server creates sensor entities for all discovered checks.
+Each configured server or agent creates sensor entities for all discovered checks.
+
+### Direct Monit mode notes
+
+- Monit's httpd restricts clients by IP/hostname *and* basic auth. Home Assistant must
+  be covered by an `allow` rule (IP, network range, or hostname) in addition to the
+  `allow user:password` credentials.
+- One config entry maps to one Monit instance (one device in Home Assistant).
 
 ## Entity model
 

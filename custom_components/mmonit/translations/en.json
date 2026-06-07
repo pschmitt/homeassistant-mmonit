@@ -2,6 +2,13 @@
   "config": {
     "step": {
       "user": {
+        "title": "Add monitoring source",
+        "menu_options": {
+          "mmonit": "M/Monit server (centralized)",
+          "monit": "Monit agent (direct)"
+        }
+      },
+      "mmonit": {
         "title": "Add M/Monit server",
         "description": "Connect Home Assistant to an M/Monit server.",
         "data": {
@@ -12,8 +19,19 @@
           "verify_ssl": "Verify SSL certificate"
         }
       },
+      "monit": {
+        "title": "Add Monit agent",
+        "description": "Connect Home Assistant directly to the embedded HTTP interface of a Monit instance (e.g. http://host:2812).",
+        "data": {
+          "url": "Monit URL",
+          "name": "Name",
+          "username": "Username",
+          "password": "Password",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      },
       "reconfigure": {
-        "title": "Reconfigure M/Monit server",
+        "title": "Reconfigure server",
         "description": "Update the connection settings. Leave the password empty to keep the current one.",
         "data": {
           "url": "Server URL",
@@ -24,12 +42,12 @@
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the M/Monit server.",
+      "cannot_connect": "Failed to connect to the server.",
       "invalid_auth": "Invalid username or password.",
       "unknown": "Unexpected error."
     },
     "abort": {
-      "already_configured": "This M/Monit server is already configured.",
+      "already_configured": "This server is already configured.",
       "reconfigure_successful": "Configuration updated."
     }
   },
@@ -44,4 +62,3 @@
     }
   }
 }
-

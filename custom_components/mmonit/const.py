@@ -7,6 +7,10 @@ from homeassistant.const import Platform
 DOMAIN = "mmonit"
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.SENSOR]
 CONF_VERIFY_SSL = "verify_ssl"
+CONF_MODE = "mode"
+
+MODE_MMONIT = "mmonit"
+MODE_MONIT = "monit"
 
 DEFAULT_SCAN_INTERVAL = 120
 MIN_SCAN_INTERVAL = 30
@@ -54,3 +58,5 @@ API_ACCEPT = "application/json"
 LOGIN_PATH = "z_security_check"
 HOSTS_LIST_PATH = "api/2/status/hosts/list"
 HOSTS_GET_PATH = "api/2/status/hosts/get"
+
+MONIT_STATUS_PATH = "_status"

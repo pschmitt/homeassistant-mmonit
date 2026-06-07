@@ -8,7 +8,7 @@ import logging
 from collections.abc import Mapping
 from email.utils import parsedate_to_datetime
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
 
@@ -32,6 +32,8 @@ def normalize_url(url: str) -> str:
 
 class MMonitApiClient:
     """Thin async client for the M/Monit HTTP API."""
+
+    manufacturer = "M/Monit"
 
     def __init__(
         self,
@@ -61,6 +63,11 @@ class MMonitApiClient:
         if parsed.hostname:
             return parsed.hostname
         return self._base_url
+
+    def get_host_url(self, host: MMonitHost) -> str:
+        """Return the M/Monit detail URL for the given host."""
+        query = urlencode({"id": host.host_id})
+        return f"{self._base_url}/status/hosts/detail?{query}"
 
     async def async_close(self) -> None:
         """Close the underlying session."""

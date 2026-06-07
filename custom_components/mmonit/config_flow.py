@@ -5,13 +5,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import aiohttp
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import CONF_NAME, CONF_PASSWORD, CONF_SCAN_INTERVAL, CONF_URL, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.selector import (
     BooleanSelector,
     NumberSelector,
@@ -22,40 +20,50 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .api import MMonitApiClient, normalize_url
+from . import create_client
+from .api import normalize_url
 from .const import (
+    CONF_MODE,
     CONF_VERIFY_SSL,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_VERIFY_SSL,
     DOMAIN,
     MIN_SCAN_INTERVAL,
+    MODE_MMONIT,
+    MODE_MONIT,
 )
 from .exceptions import MMonitApiError, MMonitAuthenticationError
 
 _LOGGER = logging.getLogger(__name__)
 
+ADD_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_URL): TextSelector(),
+        vol.Optional(CONF_NAME): TextSelector(),
+        vol.Required(CONF_USERNAME): TextSelector(),
+        vol.Required(CONF_PASSWORD): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
+        vol.Required(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL): BooleanSelector(),
+    }
+)
+
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, str]:
     """Validate the config flow input."""
-    session = async_create_clientsession(
-        hass,
-        verify_ssl=data[CONF_VERIFY_SSL],
-        cookie_jar=aiohttp.CookieJar(unsafe=True),
-    )
-    client = MMonitApiClient(
-        session=session,
-        base_url=data[CONF_URL],
-        username=data[CONF_USERNAME],
-        password=data[CONF_PASSWORD],
-    )
+    client = create_client(hass, data)
 
     try:
         hosts = await client.async_fetch_hosts()
     finally:
         await client.async_close()
 
+    default_title = client.server_name
+    if data.get(CONF_MODE, MODE_MMONIT) == MODE_MONIT and hosts:
+        default_title = next(iter(hosts.values())).display_name
+
     return {
-        "title": data.get(CONF_NAME) or client.server_name,
+        "title": data.get(CONF_NAME) or default_title,
         "unique_id": normalize_url(data[CONF_URL]),
         "host_count": str(len(hosts)),
     }
@@ -76,11 +84,38 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
-        """Handle the user step."""
+        """Let the user pick between an M/Monit server and a direct Monit agent."""
+        del user_input
+        return self.async_show_menu(
+            step_id="user",
+            menu_options=[MODE_MMONIT, MODE_MONIT],
+        )
+
+    async def async_step_mmonit(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Handle adding an M/Monit server."""
+        return await self._async_step_add(MODE_MMONIT, user_input)
+
+    async def async_step_monit(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Handle adding a Monit agent directly."""
+        return await self._async_step_add(MODE_MONIT, user_input)
+
+    async def _async_step_add(
+        self,
+        mode: str,
+        user_input: dict[str, Any] | None,
+    ) -> ConfigFlowResult:
+        """Handle adding one M/Monit server or Monit agent."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
             user_input[CONF_URL] = normalize_url(user_input[CONF_URL])
+            user_input[CONF_MODE] = mode
 
             try:
                 info = await validate_input(self.hass, user_input)
@@ -95,6 +130,7 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(info["unique_id"])
                 self._abort_if_unique_id_configured()
                 data = {
+                    CONF_MODE: mode,
                     CONF_URL: user_input[CONF_URL],
                     CONF_USERNAME: user_input[CONF_USERNAME],
                     CONF_PASSWORD: user_input[CONF_PASSWORD],
@@ -105,20 +141,8 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(title=title, data=data, options=options)
 
         return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_URL): TextSelector(),
-                    vol.Optional(CONF_NAME): TextSelector(),
-                    vol.Required(CONF_USERNAME): TextSelector(),
-                    vol.Required(CONF_PASSWORD): TextSelector(
-                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
-                    ),
-                    vol.Required(
-                        CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL
-                    ): BooleanSelector(),
-                }
-            ),
+            step_id=mode,
+            data_schema=ADD_SCHEMA,
             errors=errors,
         )
 

@@ -71,20 +71,19 @@ class MMonitHostEntity(CoordinatorEntity[MMonitDataUpdateCoordinator]):
                 )
             },
             name=host.display_name,
-            manufacturer="M/Monit",
+            manufacturer=self.coordinator.client.manufacturer,
             model="Monitored Host",
             configuration_url=self.coordinator.server_url,
         )
 
     @property
     def host_url(self) -> str | None:
-        """Return the M/Monit detail URL for the current host."""
+        """Return the server's detail URL for the current host."""
         host = self.host
         if host is None:
             return None
 
-        query = urlencode({"id": host.host_id})
-        return f"{self.coordinator.server_url}/status/hosts/detail?{query}"
+        return self.coordinator.client.get_host_url(host)
 
 
 class MMonitEntity(MMonitHostEntity):
