@@ -8,7 +8,7 @@ import logging
 import re
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from aiohttp import BasicAuth, ClientError, ClientResponseError, ClientSession
 
@@ -488,12 +488,25 @@ class MonitApiClient:
 
     async def async_action(self, host_id: str, check_name: str, action: str) -> None:
         """Send start/stop/restart/monitor/unmonitor to a Monit service."""
-        url = f"{self._base_url}/{check_name}"
+        url = f"{self._base_url}/{quote(check_name, safe='')}"
         try:
             async with asyncio.timeout(self._request_timeout):
+                get_resp = await self._session.get(
+                    url,
+                    auth=self._auth,
+                    allow_redirects=True,
+                )
+                get_resp.raise_for_status()
+
+                security_token = get_resp.cookies.get("securitytoken")
+                if security_token is None:
+                    raise MMonitApiError(
+                        f"No securitytoken cookie from Monit for {check_name!r}"
+                    )
+
                 response = await self._session.post(
                     url,
-                    data={"action": action},
+                    data={"securitytoken": security_token.value, "action": action},
                     auth=self._auth,
                     allow_redirects=False,
                 )
