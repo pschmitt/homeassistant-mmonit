@@ -31,6 +31,7 @@ LED_BLACK = 3
 # Monit <monitor> state is a bitmask: 1=active, 2=initializing, 4=waiting.
 MONITOR_ACTIVE = 0x1
 MONITOR_INIT = 0x2
+MONITOR_WAITING = 0x4
 
 MONIT_SERVICE_TYPES: dict[int, str] = {
     0: "Filesystem",
@@ -257,10 +258,10 @@ class MonitApiClient:
         """Derive an M/Monit-style LED state for one check."""
         if monitor == 0:
             return LED_BLACK
+        if monitor & (MONITOR_INIT | MONITOR_WAITING):
+            return LED_YELLOW
         if status != 0:
             return LED_RED
-        if monitor & MONITOR_INIT:
-            return LED_YELLOW
         return LED_GREEN
 
     @staticmethod
@@ -284,6 +285,8 @@ class MonitApiClient:
             return "Not monitored"
         if monitor & MONITOR_INIT:
             return "Initializing"
+        if monitor & MONITOR_WAITING:
+            return "Waiting"
         if status == 0:
             return "OK"
         return MonitApiClient._describe_status(status) or "Failed"

@@ -73,7 +73,7 @@ class MMonitHost:
         return [
             check.name
             for check in self.checks.values()
-            if check.led in {0, 1}
+            if check.led == 0
         ]
 
     @property
