@@ -343,8 +343,12 @@ class MonitApiClient:
         """Derive an M/Monit-style LED state for one check."""
         if monitor == 0:
             return LED_BLACK
-        if monitor & (MONITOR_INIT | MONITOR_WAITING):
+        if monitor & MONITOR_INIT:
+            # Genuinely initializing — last status unknown.
             return LED_YELLOW
+        if monitor & MONITOR_WAITING:
+            # Between cycles: status still reflects the last completed check.
+            return LED_RED if status != 0 else LED_GREEN
         if status != 0:
             return LED_RED
         return LED_GREEN
