@@ -495,9 +495,10 @@ class MonitApiClient:
                     url,
                     data={"action": action},
                     auth=self._auth,
-                    allow_redirects=True,
+                    allow_redirects=False,
                 )
-                response.raise_for_status()
+                if response.status >= 400:
+                    response.raise_for_status()
         except ClientResponseError as err:
             if err.status in {401, 403}:
                 raise MMonitAuthenticationError(
