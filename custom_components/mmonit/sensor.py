@@ -20,6 +20,7 @@ from .const import (
     ATTR_EVENTS_URL,
     ATTR_EVERY,
     ATTR_EVENTS,
+    ATTR_LAST_EVENTS,
     ATTR_LAST_EXIT_VALUE,
     ATTR_LAST_OUTPUT,
     ATTR_LED,
@@ -305,6 +306,8 @@ class MMonitCheckSensor(MMonitEntity, SensorEntity):
 
         if check.last_output is not None:
             attributes[ATTR_LAST_OUTPUT] = check.last_output
+        if check.last_events:
+            attributes[ATTR_LAST_EVENTS] = check.last_events
         if check.last_exit_value is not None:
             attributes[ATTR_LAST_EXIT_VALUE] = check.last_exit_value
         if check.port_response_time is not None:

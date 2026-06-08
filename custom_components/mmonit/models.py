@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(slots=True, frozen=True)
@@ -25,6 +25,7 @@ class MMonitCheck:
     last_output: str | None
     port_response_time: str | None
     data_collected: str | None
+    last_events: list[dict] = field(default_factory=list)
 
 
 @dataclass(slots=True, frozen=True)

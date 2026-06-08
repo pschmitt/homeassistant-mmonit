@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 import re
 import xml.etree.ElementTree as ET
@@ -12,7 +13,7 @@ from urllib.parse import urlparse
 from aiohttp import BasicAuth, ClientError, ClientResponseError, ClientSession
 
 from .api import normalize_url
-from .const import DEFAULT_REQUEST_TIMEOUT, MONIT_STATUS_PATH
+from .const import DEFAULT_REQUEST_TIMEOUT, MONIT_EVENTS_PATH, MONIT_STATUS_PATH
 from .exceptions import MMonitApiError, MMonitAuthenticationError
 from .models import MMonitCheck, MMonitHost
 
@@ -148,7 +149,60 @@ class MonitApiClient:
             raise MMonitApiError(f"Request failed for {url}") from err
 
         host = self._parse_status(raw)
+        events_by_service = await self._async_fetch_events()
+        if events_by_service:
+            updated_checks = {
+                cid: dataclasses.replace(chk, last_events=events_by_service.get(chk.name, []))
+                for cid, chk in host.checks.items()
+            }
+            host = dataclasses.replace(host, checks=updated_checks)
         return {host.host_id: host}
+
+    async def _async_fetch_events(self) -> dict[str, list[dict]]:
+        """Fetch per-check event history from /_events?format=xml."""
+        url = f"{self._base_url}/{MONIT_EVENTS_PATH}"
+        try:
+            async with asyncio.timeout(self._request_timeout):
+                response = await self._session.get(
+                    url,
+                    params={"format": "xml"},
+                    auth=self._auth,
+                    allow_redirects=True,
+                )
+                response.raise_for_status()
+                raw = await response.read()
+        except (ClientResponseError, ClientError, TimeoutError) as err:
+            _LOGGER.debug("Could not fetch monit events from %s: %s", url, err)
+            return {}
+        return self._parse_events(raw)
+
+    def _parse_events(self, raw: bytes) -> dict[str, list[dict]]:
+        """Parse monit events XML into {service_name: [events]} most-recent first."""
+        text = _XML_DECLARATION_RE.sub("", raw.decode("utf-8", errors="replace"))
+        try:
+            root = ET.fromstring(text)
+        except ET.ParseError:
+            return {}
+        if root.tag != "monit":
+            return {}
+
+        by_service: dict[str, list[dict]] = {}
+        for event in root.iter("event"):
+            name = self._as_str(event.findtext("service"))
+            if not name:
+                continue
+            ts_sec = self._as_int(event.findtext("collected_sec")) or 0
+            message = (self._as_str(event.findtext("message")) or "").strip()
+            state = self._as_int(event.findtext("state")) or 0
+            by_service.setdefault(name, []).append(
+                {"time": self._timestamp_to_iso(str(ts_sec)), "message": message, "state": state, "_ts": ts_sec}
+            )
+
+        result: dict[str, list[dict]] = {}
+        for name, evts in by_service.items():
+            evts.sort(key=lambda e: e["_ts"], reverse=True)
+            result[name] = [{"time": e["time"], "message": e["message"], "state": e["state"]} for e in evts[:20]]
+        return result
 
     def _parse_status(self, raw: bytes) -> MMonitHost:
         """Parse a Monit status XML document into one normalized host."""
