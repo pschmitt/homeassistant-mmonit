@@ -14,7 +14,12 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    ATTR_ACTION_RESTART,
+    ATTR_ACTION_START,
+    ATTR_ACTION_STOP,
+    ATTR_CHECK_GROUP,
     ATTR_CHECK_ID,
+    ATTR_CHECK_PATH,
     ATTR_CHECK_TYPE,
     ATTR_DATA_COLLECTED,
     ATTR_EVENTS_URL,
@@ -26,7 +31,12 @@ from .const import (
     ATTR_LED,
     ATTR_MONITOR_MODE,
     ATTR_MONITOR_STATE,
+    ATTR_ON_REBOOT,
+    ATTR_PENDING_ACTION,
+    ATTR_PID,
     ATTR_PORT_RESPONSE_TIME,
+    ATTR_PPID,
+    ATTR_PROCESS_UPTIME,
     ATTR_SERVER_NAME,
     ATTR_SERVER_URL,
     ATTR_STATUS_MESSAGE,
@@ -316,5 +326,25 @@ class MMonitCheckSensor(MMonitEntity, SensorEntity):
             attributes[ATTR_DATA_COLLECTED] = check.data_collected
         if self.events_url is not None:
             attributes[ATTR_EVENTS_URL] = self.events_url
+        if check.check_path is not None:
+            attributes[ATTR_CHECK_PATH] = check.check_path
+        if check.check_group is not None:
+            attributes[ATTR_CHECK_GROUP] = check.check_group
+        if check.action_start is not None:
+            attributes[ATTR_ACTION_START] = check.action_start
+        if check.action_stop is not None:
+            attributes[ATTR_ACTION_STOP] = check.action_stop
+        if check.action_restart is not None:
+            attributes[ATTR_ACTION_RESTART] = check.action_restart
+        if check.on_reboot is not None:
+            attributes[ATTR_ON_REBOOT] = check.on_reboot
+        if check.pending_action is not None:
+            attributes[ATTR_PENDING_ACTION] = check.pending_action
+        if check.pid is not None:
+            attributes[ATTR_PID] = check.pid
+        if check.ppid is not None:
+            attributes[ATTR_PPID] = check.ppid
+        if check.process_uptime is not None:
+            attributes[ATTR_PROCESS_UPTIME] = check.process_uptime
 
         return attributes

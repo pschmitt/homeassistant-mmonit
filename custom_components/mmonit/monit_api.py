@@ -288,6 +288,27 @@ class MonitApiClient:
         if last_output is not None:
             last_output = last_output.strip() or None
 
+        check_group = self._as_str(service.findtext("group"))
+        on_reboot_val = self._as_int(service.findtext("onreboot"))
+        on_reboot = {0: "start", 1: "stop", 2: "noaction"}.get(on_reboot_val) if on_reboot_val is not None else None
+        pending_action_val = self._as_int(service.findtext("pendingaction"))
+        pending_action = {
+            0: "none", 1: "stop", 2: "start", 3: "restart", 4: "alert", 5: "exec",
+        }.get(pending_action_val) if pending_action_val is not None else None
+        action_start = self._as_str(service.findtext("start/path"))
+        action_stop = self._as_str(service.findtext("stop/path"))
+        action_restart = self._as_str(service.findtext("restart/path"))
+
+        check_path = None
+        if type_id == 7:  # Program
+            check_path = self._as_str(service.findtext("program/path"))
+
+        pid = ppid = process_uptime = None
+        if type_id == 3:  # Process
+            pid = self._as_int(service.findtext("pid"))
+            ppid = self._as_int(service.findtext("ppid"))
+            process_uptime = self._format_duration(self._as_int(service.findtext("uptime")))
+
         return MMonitCheck(
             service_id=name,
             name=name,
@@ -305,6 +326,16 @@ class MonitApiClient:
             last_output=last_output,
             port_response_time=self._extract_response_time(service),
             data_collected=self._timestamp_to_iso(service.findtext("collected_sec")),
+            check_path=check_path,
+            check_group=check_group,
+            action_start=action_start,
+            action_stop=action_stop,
+            action_restart=action_restart,
+            on_reboot=on_reboot,
+            pending_action=pending_action,
+            pid=pid,
+            ppid=ppid,
+            process_uptime=process_uptime,
         )
 
     @staticmethod

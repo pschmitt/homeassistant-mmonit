@@ -281,6 +281,9 @@ class MMonitApiClient:
                 last_output=self._extract_status_message(service) or None,
                 port_response_time=self._extract_port_response_time(service),
                 data_collected=data_collected,
+                check_group=self._as_str(service.get("group")),
+                pid=self._as_int(service.get("pid")),
+                ppid=self._as_int(service.get("ppid")),
             )
 
         return MMonitHost(

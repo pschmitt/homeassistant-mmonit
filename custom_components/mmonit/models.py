@@ -26,6 +26,16 @@ class MMonitCheck:
     port_response_time: str | None
     data_collected: str | None
     last_events: list[dict] = field(default_factory=list)
+    check_path: str | None = None
+    check_group: str | None = None
+    action_start: str | None = None
+    action_stop: str | None = None
+    action_restart: str | None = None
+    on_reboot: str | None = None
+    pending_action: str | None = None
+    pid: int | None = None
+    ppid: int | None = None
+    process_uptime: str | None = None
 
 
 @dataclass(slots=True, frozen=True)
