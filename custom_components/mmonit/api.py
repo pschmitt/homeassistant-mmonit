@@ -447,6 +447,15 @@ class MMonitApiClient:
             return None
         return str(value)
 
+    async def async_action(self, host_id: str, check_name: str, action: str) -> None:
+        """Send start/stop/restart/monitor/unmonitor to a check via M/Monit."""
+        await self._async_request_json(
+            "api/2/action/service",
+            method="POST",
+            data={"hostid": host_id, "service": check_name, "action": action},
+        )
+
+
     def _kilobytes_to_bytes(self, value: Any) -> int | None:
         """Convert a kibibyte value to bytes when possible."""
         kibibytes = self._as_int(value)

@@ -1,0 +1,39 @@
+start_service:
+  name: Start service
+  description: Start a Monit-monitored service.
+  target:
+    entity:
+      domain: sensor
+      integration: mmonit
+
+stop_service:
+  name: Stop service
+  description: Stop a Monit-monitored service.
+  target:
+    entity:
+      domain: sensor
+      integration: mmonit
+
+restart_service:
+  name: Restart service
+  description: Restart a Monit-monitored service.
+  target:
+    entity:
+      domain: sensor
+      integration: mmonit
+
+monitor_service:
+  name: Enable monitoring
+  description: Enable Monit monitoring for a service.
+  target:
+    entity:
+      domain: sensor
+      integration: mmonit
+
+unmonitor_service:
+  name: Disable monitoring
+  description: Disable Monit monitoring for a service.
+  target:
+    entity:
+      domain: sensor
+      integration: mmonit

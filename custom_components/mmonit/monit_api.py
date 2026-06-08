@@ -486,6 +486,31 @@ class MonitApiClient:
             return None
         return str(value)
 
+    async def async_action(self, host_id: str, check_name: str, action: str) -> None:
+        """Send start/stop/restart/monitor/unmonitor to a Monit service."""
+        url = f"{self._base_url}/{check_name}"
+        try:
+            async with asyncio.timeout(self._request_timeout):
+                response = await self._session.post(
+                    url,
+                    data={"action": action},
+                    auth=self._auth,
+                    allow_redirects=True,
+                )
+                response.raise_for_status()
+        except ClientResponseError as err:
+            if err.status in {401, 403}:
+                raise MMonitAuthenticationError(
+                    f"Authentication failed sending {action!r} to {check_name!r}"
+                ) from err
+            raise MMonitApiError(
+                f"HTTP {err.status} sending {action!r} to {check_name!r}"
+            ) from err
+        except (ClientError, TimeoutError) as err:
+            raise MMonitApiError(
+                f"Request failed sending {action!r} to {check_name!r}"
+            ) from err
+
     def _kilobytes_to_bytes(self, value: str | None) -> int | None:
         """Convert a kibibyte value to bytes when possible."""
         kibibytes = self._as_int(value)

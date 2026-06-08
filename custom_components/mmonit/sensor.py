@@ -11,7 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfInformation
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback, async_get_current_platform
 
 from .const import (
     ATTR_ACTION_RESTART,
@@ -192,6 +192,16 @@ async def async_setup_entry(
         coordinator.async_add_listener(async_add_missing_entities)
     )
 
+    platform = async_get_current_platform()
+    for _svc, _action in (
+        ("start_service", "start"),
+        ("stop_service", "stop"),
+        ("restart_service", "restart"),
+        ("monitor_service", "monitor"),
+        ("unmonitor_service", "unmonitor"),
+    ):
+        platform.async_register_entity_service(_svc, {}, f"async_{_svc}")
+
 
 class MMonitHostSensor(MMonitHostEntity, SensorEntity):
     """Sensor representing one host-level M/Monit metric."""
@@ -348,3 +358,29 @@ class MMonitCheckSensor(MMonitEntity, SensorEntity):
             attributes[ATTR_PROCESS_UPTIME] = check.process_uptime
 
         return attributes
+
+    async def async_start_service(self) -> None:
+        """Start this monitored service."""
+        await self._async_monit_action("start")
+
+    async def async_stop_service(self) -> None:
+        """Stop this monitored service."""
+        await self._async_monit_action("stop")
+
+    async def async_restart_service(self) -> None:
+        """Restart this monitored service."""
+        await self._async_monit_action("restart")
+
+    async def async_monitor_service(self) -> None:
+        """Enable monitoring for this service."""
+        await self._async_monit_action("monitor")
+
+    async def async_unmonitor_service(self) -> None:
+        """Disable monitoring for this service."""
+        await self._async_monit_action("unmonitor")
+
+    async def _async_monit_action(self, action: str) -> None:
+        await self.coordinator.client.async_action(
+            self._host_id, self._check_id, action
+        )
+        await self.coordinator.async_request_refresh()
