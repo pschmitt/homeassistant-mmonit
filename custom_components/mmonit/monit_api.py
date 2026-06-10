@@ -146,7 +146,7 @@ class MonitApiClient:
                 raise MMonitAuthenticationError("Invalid Monit credentials") from err
             raise MMonitApiError(f"HTTP error {err.status} for {url}") from err
         except (ClientError, TimeoutError) as err:
-            raise MMonitApiError(f"Request failed for {url}") from err
+            raise MMonitApiError(f"Request failed for {url}: {err!r}") from err
 
         host = self._parse_status(raw)
         events_by_service = await self._async_fetch_events()

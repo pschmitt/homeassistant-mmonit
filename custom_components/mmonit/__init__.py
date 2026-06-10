@@ -72,8 +72,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Unload an M/Monit config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(config_entry, PLATFORMS)
-    runtime = hass.data[DOMAIN].pop(config_entry.entry_id)
-    await runtime["client"].async_close()
+    if unload_ok:
+        runtime = hass.data[DOMAIN].pop(config_entry.entry_id)
+        await runtime["client"].async_close()
     return unload_ok
 
 

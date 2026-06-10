@@ -86,18 +86,19 @@ class MMonitApiClient:
             raise MMonitApiError("Unexpected response for hosts list")
 
         semaphore = asyncio.Semaphore(10)
-        detail_tasks = [
-            self._async_fetch_host_detail(semaphore, record)
+        valid_records = [
+            record
             for record in records
             if isinstance(record, Mapping) and "id" in record
+        ]
+        detail_tasks = [
+            self._async_fetch_host_detail(semaphore, record)
+            for record in valid_records
         ]
         detail_results = await asyncio.gather(*detail_tasks, return_exceptions=True)
 
         hosts: dict[str, MMonitHost] = {}
-        for record, detail_result in zip(records, detail_results, strict=False):
-            if not isinstance(record, Mapping):
-                continue
-
+        for record, detail_result in zip(valid_records, detail_results, strict=True):
             host_id = str(record.get("id", ""))
             if not host_id:
                 continue
@@ -192,7 +193,7 @@ class MMonitApiClient:
                 raise MMonitAuthenticationError("Invalid M/Monit credentials") from err
             raise MMonitApiError(f"HTTP error {err.status} for {endpoint}") from err
         except (ClientError, TimeoutError) as err:
-            raise MMonitApiError(f"Request failed for {endpoint}") from err
+            raise MMonitApiError(f"Request failed for {endpoint}: {err!r}") from err
 
     async def _async_login(self) -> None:
         """Authenticate with M/Monit and populate the session cookie jar."""
