@@ -206,6 +206,10 @@ async def async_setup_entry(
 class MMonitHostSensor(MMonitHostEntity, SensorEntity):
     """Sensor representing one host-level M/Monit metric."""
 
+    # monit_uptime increments on every poll and would otherwise force a new
+    # state row each cycle. Keep it live but exclude it from the recorder.
+    _unrecorded_attributes = frozenset({"monit_uptime"})
+
     entity_description: MMonitHostSensorDescription
 
     def __init__(
@@ -257,6 +261,21 @@ class MMonitHostSensor(MMonitHostEntity, SensorEntity):
 
 class MMonitCheckSensor(MMonitEntity, SensorEntity):
     """Sensor representing one M/Monit check."""
+
+    # These attributes change on (almost) every poll and/or are large
+    # (last_output can be multi-line check output). The check status itself
+    # rarely changes, so recording these forced a new state row + unique
+    # attribute blob every cycle and dominated recorder DB growth. Keep them
+    # live for the UI but never persist them to history.
+    _unrecorded_attributes = frozenset(
+        {
+            ATTR_LAST_OUTPUT,
+            ATTR_LAST_EVENTS,
+            ATTR_PORT_RESPONSE_TIME,
+            ATTR_DATA_COLLECTED,
+            ATTR_PROCESS_UPTIME,
+        }
+    )
 
     def __init__(
         self,
