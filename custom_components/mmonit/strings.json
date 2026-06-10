@@ -39,6 +39,14 @@
           "password": "Password",
           "verify_ssl": "Verify SSL certificate"
         }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate M/Monit",
+        "description": "The credentials for **{name}** were rejected. Enter the current username and password.",
+        "data": {
+          "username": "Username",
+          "password": "Password (leave blank to keep current)"
+        }
       }
     },
     "error": {
@@ -48,7 +56,8 @@
     },
     "abort": {
       "already_configured": "This server is already configured.",
-      "reconfigure_successful": "Configuration updated."
+      "reconfigure_successful": "Configuration updated.",
+      "reauth_successful": "Re-authentication successful."
     }
   },
   "options": {
