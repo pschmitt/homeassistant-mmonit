@@ -57,8 +57,38 @@ Each configured server or agent creates sensor entities for all discovered check
 - **Device**: one per M/Monit host
 - **Entity**: one binary sensor per host for the overall host status
 - **Entity**: one sensor per host check
-- **State**: the M/Monit check status, such as `Status ok` or `Running`
+- **State**: the M/Monit check status, such as `OK`, `Waiting`, `Initializing`, or a failure description
 - **Attribute**: `status_message` contains the detailed check output
+- **Attribute**: `led` encodes the check or host state: `0` = failed (red), `1` = initializing/starting (yellow), `2` = OK (green), `3` = not monitored (black)
+
+### Host status binary sensor
+
+The host-level binary sensor uses the `problem` device class:
+
+- **`on`** (problem): at least one check is in a failed state (`led == 0`)
+- **`off`** (no problem): all checks are OK, unmonitored, or in a transient startup state
+
+Checks that are **initializing or starting** (`led == 1`) are not counted as failures. Monit transitions
+checks through this state briefly after a restart; treating them as failures would produce spurious alerts.
+
+## Lovelace dashboard
+
+A dashboard build script ships at `custom_components/mmonit/dashboard/build.py`.
+It generates and pushes a Lovelace dashboard (`url_path: dashboard-monit`) that shows:
+
+- a fleet health summary with per-host status cards (red = failed, amber = starting, green = ok)
+- a failing-checks list filtered to `led == 0` only — starting/initializing checks are not shown as failures
+- per-host popups with CPU/memory trends, check lists grouped by LED state, and action buttons
+
+Run from any location where the HA credentials are available:
+
+```sh
+# via HACS install
+python3 /config/custom_components/mmonit/dashboard/build.py --push
+
+# via the hass-config wrapper (if present)
+cd /path/to/hass-config/dashboards/monit && python3 build.py --push
+```
 
 ## Branding
 
