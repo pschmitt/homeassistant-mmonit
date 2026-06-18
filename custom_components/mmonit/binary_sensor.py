@@ -102,7 +102,7 @@ class MMonitHostStatusBinarySensor(MMonitHostEntity, BinarySensorEntity):
         host = self.host
         if host is None or host.led is None:
             return None
-        return host.led in {0, 1}
+        return host.led == 0
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

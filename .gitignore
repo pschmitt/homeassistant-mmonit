@@ -1,3 +1,4 @@
 __pycache__/
 *.py[cod]
+custom_components/mmonit/dashboard/monit_config.json
 
