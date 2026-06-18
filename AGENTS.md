@@ -8,17 +8,15 @@ Custom Home Assistant integration for M/Monit and Monit. Two API backends, one e
 
 ```
 custom_components/mmonit/
-  api.py          — M/Monit centralized API client (JSON over HTTP)
-  monit_api.py    — Direct Monit client (XML over HTTP)
-  coordinator.py  — DataUpdateCoordinator, picks the right client per config entry
-  models.py       — MMonitHost / MMonitCheck dataclasses (shared by both backends)
+  api.py           — M/Monit centralized API client (JSON over HTTP)
+  monit_api.py     — Direct Monit client (XML over HTTP)
+  coordinator.py   — DataUpdateCoordinator, picks the right client per config entry
+  models.py        — MMonitHost / MMonitCheck dataclasses (shared by both backends)
   binary_sensor.py — host-level problem sensor (on = led==0, off = ok/starting/unmonitored)
-  sensor.py       — check-level sensors + host metric sensors (CPU, memory, uptime…)
-  entity.py       — base entity classes with coordinator wiring
-  registry.py     — unique-id helpers
-  const.py        — constants (LED values, attribute names, mode names)
-  dashboard/
-    build.py      — Lovelace dashboard generator/pusher (run manually, not by HA)
+  sensor.py        — check-level sensors + host metric sensors (CPU, memory, uptime…)
+  entity.py        — base entity classes with coordinator wiring
+  registry.py      — unique-id helpers
+  const.py         — constants (LED values, attribute names, mode names)
 ```
 
 ## LED semantics
@@ -55,22 +53,15 @@ The LED values come directly from the M/Monit API (`summary.get("led")` for the 
 `service.get("led")` for each check). M/Monit may report LED=1 for a host when its checks
 are starting after a restart.
 
-## Dashboard script
+## Lovelace strategy
 
-`custom_components/mmonit/dashboard/build.py` generates and pushes the `dashboard-monit`
-Lovelace dashboard. It queries the HA WebSocket API at runtime to discover current hosts
-and entities; re-run it whenever hosts are added or removed.
+The Monit view is rendered by a JavaScript Lovelace custom strategy (`custom:monit`),
+maintained separately from this integration. The strategy reads entity state at runtime —
+no static config generation needed. Key invariants the strategy must respect:
 
-Run it with `--push` to update HA live:
-```sh
-python3 custom_components/mmonit/dashboard/build.py --push
-```
-
-Credentials are resolved from `$HASS_URL`/`$HASS_TOKEN` env vars, or by calling
-`zhj hass::secrets-gu5a` as a fallback.
-
-The snapshot `dashboard/monit_config.json` (gitignored) is written next to the script on
-each run for local inspection.
+- Failing checks section: filter to `attributes.led == 0` only
+- LED=1 (starting/initializing): amber indicator, never counted as a failure
+- `is_state('...', 'on')` on the host binary sensor reliably detects LED=0 only (after integration fix)
 
 ## Code conventions
 

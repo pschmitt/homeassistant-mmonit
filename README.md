@@ -73,22 +73,10 @@ checks through this state briefly after a restart; treating them as failures wou
 
 ## Lovelace dashboard
 
-A dashboard build script ships at `custom_components/mmonit/dashboard/build.py`.
-It generates and pushes a Lovelace dashboard (`url_path: dashboard-monit`) that shows:
-
-- a fleet health summary with per-host status cards (red = failed, amber = starting, green = ok)
-- a failing-checks list filtered to `led == 0` only — starting/initializing checks are not shown as failures
-- per-host popups with CPU/memory trends, check lists grouped by LED state, and action buttons
-
-Run from any location where the HA credentials are available:
-
-```sh
-# via HACS install
-python3 /config/custom_components/mmonit/dashboard/build.py --push
-
-# via the hass-config wrapper (if present)
-cd /path/to/hass-config/dashboards/monit && python3 build.py --push
-```
+A JavaScript Lovelace view strategy (`custom:monit`) is maintained separately.
+It dynamically generates a Monit view from the entity registry — no static config generation needed.
+The strategy filters failing checks to `led == 0` only; starting/initializing checks (`led == 1`)
+are shown as amber indicators but are not counted as failures.
 
 ## Branding
 
