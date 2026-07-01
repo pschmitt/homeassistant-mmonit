@@ -188,7 +188,7 @@ class MonitApiClient:
 
         cpu = memory = None
         uptime = None
-        load_average = swap = None
+        load_1 = load_5 = load_15 = swap = None
         if system_service is not None:
             cpu_user = self._as_float(system_service.findtext("system/cpu/user"))
             cpu_system = self._as_float(system_service.findtext("system/cpu/system"))
@@ -203,14 +203,13 @@ class MonitApiClient:
             load_5 = self._as_float(system_service.findtext("system/load/avg05"))
             load_15 = self._as_float(system_service.findtext("system/load/avg15"))
             swap = self._as_float(system_service.findtext("system/swap/percent"))
+            # Per-core 15-min load is the value monit's default resource limits
+            # alert on; keep it in the check's resource_summary only.
             load_per_core = (
                 round(load_15 / cpu_count, 2)
                 if load_15 is not None and cpu_count
                 else None
             )
-            # The "Load Average" host sensor tracks the same per-core 15-min
-            # value monit's default resource limits alert on.
-            load_average = load_per_core if load_per_core is not None else load_15
 
             # Attach live readings to the system check so a "Resource limit
             # matched" failure can show which reading is abnormal.
@@ -236,7 +235,9 @@ class MonitApiClient:
             heartbeat=None,
             events=None,
             uptime=uptime,
-            load_average=load_average,
+            load_1=load_1,
+            load_5=load_5,
+            load_15=load_15,
             swap=swap,
             cpu_count=cpu_count,
             memory_total_bytes=self._kilobytes_to_bytes(root.findtext("platform/memory")),

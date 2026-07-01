@@ -58,7 +58,9 @@ ATTR_RESOURCE_SUMMARY = "resource_summary"
 
 HOST_SENSOR_CPU_COUNT = "host_cpu_count"
 HOST_SENSOR_CPU_USAGE = "host_cpu_usage"
-HOST_SENSOR_LOAD_AVERAGE = "host_load_average"
+HOST_SENSOR_LOAD_1 = "host_load_1m"
+HOST_SENSOR_LOAD_5 = "host_load_5m"
+HOST_SENSOR_LOAD_15 = "host_load_15m"
 HOST_SENSOR_MEMORY_TOTAL = "host_memory_total"
 HOST_SENSOR_MEMORY_USAGE = "host_memory_usage"
 HOST_SENSOR_PLATFORM = "host_platform"
@@ -67,7 +69,9 @@ HOST_SENSOR_SWAP_USAGE = "host_swap_usage"
 HOST_SENSOR_UPTIME = "host_uptime"
 HOST_SENSOR_KEYS: tuple[str, ...] = (
     HOST_SENSOR_CPU_USAGE,
-    HOST_SENSOR_LOAD_AVERAGE,
+    HOST_SENSOR_LOAD_1,
+    HOST_SENSOR_LOAD_5,
+    HOST_SENSOR_LOAD_15,
     HOST_SENSOR_MEMORY_USAGE,
     HOST_SENSOR_SWAP_USAGE,
     HOST_SENSOR_UPTIME,

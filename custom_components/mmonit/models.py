@@ -74,9 +74,11 @@ class MMonitHost:
     monit_version: str | None
     monit_uptime: str | None
     checks: dict[str, MMonitCheck]
-    # Live system readings (standalone monit only). load_average is per-core
-    # (15-min); swap is a percentage.
-    load_average: float | None = None
+    # Live system readings (standalone monit only). Load averages are raw
+    # (not per-core); swap is a percentage.
+    load_1: float | None = None
+    load_5: float | None = None
+    load_15: float | None = None
     swap: float | None = None
 
     @property
