@@ -47,17 +47,29 @@ ATTR_PENDING_ACTION = "pending_action"
 ATTR_PID = "pid"
 ATTR_PPID = "ppid"
 ATTR_PROCESS_UPTIME = "process_uptime"
+ATTR_SYSTEM_LOAD_1 = "system_load_1m"
+ATTR_SYSTEM_LOAD_5 = "system_load_5m"
+ATTR_SYSTEM_LOAD_15 = "system_load_15m"
+ATTR_SYSTEM_LOAD_PER_CORE = "system_load_per_core"
+ATTR_SYSTEM_CPU_PERCENT = "system_cpu_percent"
+ATTR_SYSTEM_MEMORY_PERCENT = "system_memory_percent"
+ATTR_SYSTEM_SWAP_PERCENT = "system_swap_percent"
+ATTR_RESOURCE_SUMMARY = "resource_summary"
 
 HOST_SENSOR_CPU_COUNT = "host_cpu_count"
 HOST_SENSOR_CPU_USAGE = "host_cpu_usage"
+HOST_SENSOR_LOAD_AVERAGE = "host_load_average"
 HOST_SENSOR_MEMORY_TOTAL = "host_memory_total"
 HOST_SENSOR_MEMORY_USAGE = "host_memory_usage"
 HOST_SENSOR_PLATFORM = "host_platform"
 HOST_SENSOR_SWAP_TOTAL = "host_swap_total"
+HOST_SENSOR_SWAP_USAGE = "host_swap_usage"
 HOST_SENSOR_UPTIME = "host_uptime"
 HOST_SENSOR_KEYS: tuple[str, ...] = (
     HOST_SENSOR_CPU_USAGE,
+    HOST_SENSOR_LOAD_AVERAGE,
     HOST_SENSOR_MEMORY_USAGE,
+    HOST_SENSOR_SWAP_USAGE,
     HOST_SENSOR_UPTIME,
     HOST_SENSOR_CPU_COUNT,
     HOST_SENSOR_MEMORY_TOTAL,
@@ -71,4 +83,3 @@ HOSTS_LIST_PATH = "api/2/status/hosts/list"
 HOSTS_GET_PATH = "api/2/status/hosts/get"
 
 MONIT_STATUS_PATH = "_status"
-MONIT_EVENTS_PATH = "_events"

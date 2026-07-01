@@ -13,7 +13,7 @@ from urllib.parse import quote, urlparse
 from aiohttp import BasicAuth, ClientError, ClientResponseError, ClientSession
 
 from .api import normalize_url
-from .const import DEFAULT_REQUEST_TIMEOUT, MONIT_EVENTS_PATH, MONIT_STATUS_PATH
+from .const import DEFAULT_REQUEST_TIMEOUT, MONIT_STATUS_PATH
 from .exceptions import MMonitApiError, MMonitAuthenticationError
 from .models import MMonitCheck, MMonitHost
 
@@ -149,60 +149,7 @@ class MonitApiClient:
             raise MMonitApiError(f"Request failed for {url}: {err!r}") from err
 
         host = self._parse_status(raw)
-        events_by_service = await self._async_fetch_events()
-        if events_by_service:
-            updated_checks = {
-                cid: dataclasses.replace(chk, last_events=events_by_service.get(chk.name, []))
-                for cid, chk in host.checks.items()
-            }
-            host = dataclasses.replace(host, checks=updated_checks)
         return {host.host_id: host}
-
-    async def _async_fetch_events(self) -> dict[str, list[dict]]:
-        """Fetch per-check event history from /_events?format=xml."""
-        url = f"{self._base_url}/{MONIT_EVENTS_PATH}"
-        try:
-            async with asyncio.timeout(self._request_timeout):
-                response = await self._session.get(
-                    url,
-                    params={"format": "xml"},
-                    auth=self._auth,
-                    allow_redirects=True,
-                )
-                response.raise_for_status()
-                raw = await response.read()
-        except (ClientResponseError, ClientError, TimeoutError) as err:
-            _LOGGER.debug("Could not fetch monit events from %s: %s", url, err)
-            return {}
-        return self._parse_events(raw)
-
-    def _parse_events(self, raw: bytes) -> dict[str, list[dict]]:
-        """Parse monit events XML into {service_name: [events]} most-recent first."""
-        text = _XML_DECLARATION_RE.sub("", raw.decode("utf-8", errors="replace"))
-        try:
-            root = ET.fromstring(text)
-        except ET.ParseError:
-            return {}
-        if root.tag != "monit":
-            return {}
-
-        by_service: dict[str, list[dict]] = {}
-        for event in root.iter("event"):
-            name = self._as_str(event.findtext("service"))
-            if not name:
-                continue
-            ts_sec = self._as_int(event.findtext("collected_sec")) or 0
-            message = (self._as_str(event.findtext("message")) or "").strip()
-            state = self._as_int(event.findtext("state")) or 0
-            by_service.setdefault(name, []).append(
-                {"time": self._timestamp_to_iso(str(ts_sec)), "message": message, "state": state, "_ts": ts_sec}
-            )
-
-        result: dict[str, list[dict]] = {}
-        for name, evts in by_service.items():
-            evts.sort(key=lambda e: e["_ts"], reverse=True)
-            result[name] = [{"time": e["time"], "message": e["message"], "state": e["state"]} for e in evts[:20]]
-        return result
 
     def _parse_status(self, raw: bytes) -> MMonitHost:
         """Parse a Monit status XML document into one normalized host."""
@@ -237,8 +184,11 @@ class MonitApiClient:
         else:
             summary = f"All {len(checks)} checks OK"
 
+        cpu_count = self._as_int(root.findtext("platform/cpu"))
+
         cpu = memory = None
         uptime = None
+        load_average = swap = None
         if system_service is not None:
             cpu_user = self._as_float(system_service.findtext("system/cpu/user"))
             cpu_system = self._as_float(system_service.findtext("system/cpu/system"))
@@ -248,6 +198,32 @@ class MonitApiClient:
                 cpu = round(sum(cpu_parts), 1)
             memory = self._as_float(system_service.findtext("system/memory/percent"))
             uptime = self._format_duration(self._as_int(system_service.findtext("uptime")))
+
+            load_1 = self._as_float(system_service.findtext("system/load/avg01"))
+            load_5 = self._as_float(system_service.findtext("system/load/avg05"))
+            load_15 = self._as_float(system_service.findtext("system/load/avg15"))
+            swap = self._as_float(system_service.findtext("system/swap/percent"))
+            load_per_core = (
+                round(load_15 / cpu_count, 2)
+                if load_15 is not None and cpu_count
+                else None
+            )
+            # The "Load Average" host sensor tracks the same per-core 15-min
+            # value monit's default resource limits alert on.
+            load_average = load_per_core if load_per_core is not None else load_15
+
+            # Attach live readings to the system check so a "Resource limit
+            # matched" failure can show which reading is abnormal.
+            checks = self._attach_system_metrics(
+                checks,
+                load_1=load_1,
+                load_5=load_5,
+                load_15=load_15,
+                load_per_core=load_per_core,
+                cpu_percent=cpu,
+                memory_percent=memory,
+                swap_percent=swap,
+            )
 
         return MMonitHost(
             host_id=str(host_id),
@@ -260,7 +236,9 @@ class MonitApiClient:
             heartbeat=None,
             events=None,
             uptime=uptime,
-            cpu_count=self._as_int(root.findtext("platform/cpu")),
+            load_average=load_average,
+            swap=swap,
+            cpu_count=cpu_count,
             memory_total_bytes=self._kilobytes_to_bytes(root.findtext("platform/memory")),
             swap_total_bytes=self._kilobytes_to_bytes(root.findtext("platform/swap")),
             platform_name=self._as_str(root.findtext("platform/name")),
@@ -337,6 +315,67 @@ class MonitApiClient:
             ppid=ppid,
             process_uptime=process_uptime,
         )
+
+    def _attach_system_metrics(
+        self,
+        checks: dict[str, MMonitCheck],
+        *,
+        load_1: float | None,
+        load_5: float | None,
+        load_15: float | None,
+        load_per_core: float | None,
+        cpu_percent: float | None,
+        memory_percent: float | None,
+        swap_percent: float | None,
+    ) -> dict[str, MMonitCheck]:
+        """Attach live system readings to the system check (type 5).
+
+        Monit only reports a single "Resource limit matched" bit and never says
+        which configured limit tripped. Surfacing the raw load/CPU/memory/swap
+        readings lets the abnormal one be identified at a glance.
+        """
+        summary = self._format_resource_summary(
+            load_per_core, load_15, cpu_percent, memory_percent, swap_percent
+        )
+
+        updated = dict(checks)
+        for check_id, check in checks.items():
+            if check.type_id != 5:
+                continue
+            updated[check_id] = dataclasses.replace(
+                check,
+                system_load_1=load_1,
+                system_load_5=load_5,
+                system_load_15=load_15,
+                system_load_per_core=load_per_core,
+                system_cpu_percent=cpu_percent,
+                system_memory_percent=memory_percent,
+                system_swap_percent=swap_percent,
+                resource_summary=summary,
+            )
+        return updated
+
+    @staticmethod
+    def _format_resource_summary(
+        load_per_core: float | None,
+        load_15: float | None,
+        cpu_percent: float | None,
+        memory_percent: float | None,
+        swap_percent: float | None,
+    ) -> str | None:
+        """Format a one-line summary of the live system readings."""
+        parts: list[str] = []
+        if load_per_core is not None:
+            parts.append(f"load {load_per_core:.2f}/core")
+        elif load_15 is not None:
+            parts.append(f"load {load_15:.2f}")
+        if cpu_percent is not None:
+            parts.append(f"CPU {cpu_percent:.0f}%")
+        if memory_percent is not None:
+            parts.append(f"mem {memory_percent:.0f}%")
+        if swap_percent is not None:
+            parts.append(f"swap {swap_percent:.0f}%")
+        return " · ".join(parts) or None
 
     @staticmethod
     def _derive_check_led(status: int, monitor: int) -> int:

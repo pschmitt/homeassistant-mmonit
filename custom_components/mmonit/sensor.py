@@ -37,16 +37,26 @@ from .const import (
     ATTR_PORT_RESPONSE_TIME,
     ATTR_PPID,
     ATTR_PROCESS_UPTIME,
+    ATTR_RESOURCE_SUMMARY,
     ATTR_SERVER_NAME,
     ATTR_SERVER_URL,
     ATTR_STATUS_MESSAGE,
+    ATTR_SYSTEM_CPU_PERCENT,
+    ATTR_SYSTEM_LOAD_1,
+    ATTR_SYSTEM_LOAD_5,
+    ATTR_SYSTEM_LOAD_15,
+    ATTR_SYSTEM_LOAD_PER_CORE,
+    ATTR_SYSTEM_MEMORY_PERCENT,
+    ATTR_SYSTEM_SWAP_PERCENT,
     DOMAIN,
     HOST_SENSOR_CPU_COUNT,
     HOST_SENSOR_CPU_USAGE,
+    HOST_SENSOR_LOAD_AVERAGE,
     HOST_SENSOR_MEMORY_TOTAL,
     HOST_SENSOR_MEMORY_USAGE,
     HOST_SENSOR_PLATFORM,
     HOST_SENSOR_SWAP_TOTAL,
+    HOST_SENSOR_SWAP_USAGE,
     HOST_SENSOR_UPTIME,
 )
 from .coordinator import MMonitDataUpdateCoordinator
@@ -59,6 +69,9 @@ class MMonitHostSensorDescription(SensorEntityDescription):
     """Description of a host-level M/Monit sensor."""
 
     value_attr: str
+    # When True, only create the entity for hosts that actually report the
+    # value (e.g. load/swap are standalone-monit only, absent from M/Monit).
+    require_value: bool = False
 
 
 HOST_SENSOR_DESCRIPTIONS: tuple[MMonitHostSensorDescription, ...] = (
@@ -79,6 +92,25 @@ HOST_SENSOR_DESCRIPTIONS: tuple[MMonitHostSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
         value_attr="memory",
+    ),
+    MMonitHostSensorDescription(
+        key=HOST_SENSOR_LOAD_AVERAGE,
+        name="Load Average",
+        icon="mdi:chart-line-variant",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        value_attr="load_average",
+        require_value=True,
+    ),
+    MMonitHostSensorDescription(
+        key=HOST_SENSOR_SWAP_USAGE,
+        name="Swap Usage",
+        icon="mdi:harddisk",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_attr="swap",
+        require_value=True,
     ),
     MMonitHostSensorDescription(
         key=HOST_SENSOR_UPTIME,
@@ -141,6 +173,11 @@ async def async_setup_entry(
 
         for host in coordinator.data.values():
             for description in HOST_SENSOR_DESCRIPTIONS:
+                if (
+                    description.require_value
+                    and getattr(host, description.value_attr) is None
+                ):
+                    continue
                 entity_unique_id = get_host_metric_unique_id(
                     config_entry.entry_id,
                     host.host_id,
@@ -274,6 +311,15 @@ class MMonitCheckSensor(MMonitEntity, SensorEntity):
             ATTR_PORT_RESPONSE_TIME,
             ATTR_DATA_COLLECTED,
             ATTR_PROCESS_UPTIME,
+            # Live system readings change every poll; keep them out of history.
+            ATTR_RESOURCE_SUMMARY,
+            ATTR_SYSTEM_LOAD_1,
+            ATTR_SYSTEM_LOAD_5,
+            ATTR_SYSTEM_LOAD_15,
+            ATTR_SYSTEM_LOAD_PER_CORE,
+            ATTR_SYSTEM_CPU_PERCENT,
+            ATTR_SYSTEM_MEMORY_PERCENT,
+            ATTR_SYSTEM_SWAP_PERCENT,
         }
     )
 
@@ -375,6 +421,22 @@ class MMonitCheckSensor(MMonitEntity, SensorEntity):
             attributes[ATTR_PPID] = check.ppid
         if check.process_uptime is not None:
             attributes[ATTR_PROCESS_UPTIME] = check.process_uptime
+        if check.resource_summary is not None:
+            attributes[ATTR_RESOURCE_SUMMARY] = check.resource_summary
+        if check.system_load_1 is not None:
+            attributes[ATTR_SYSTEM_LOAD_1] = check.system_load_1
+        if check.system_load_5 is not None:
+            attributes[ATTR_SYSTEM_LOAD_5] = check.system_load_5
+        if check.system_load_15 is not None:
+            attributes[ATTR_SYSTEM_LOAD_15] = check.system_load_15
+        if check.system_load_per_core is not None:
+            attributes[ATTR_SYSTEM_LOAD_PER_CORE] = check.system_load_per_core
+        if check.system_cpu_percent is not None:
+            attributes[ATTR_SYSTEM_CPU_PERCENT] = check.system_cpu_percent
+        if check.system_memory_percent is not None:
+            attributes[ATTR_SYSTEM_MEMORY_PERCENT] = check.system_memory_percent
+        if check.system_swap_percent is not None:
+            attributes[ATTR_SYSTEM_SWAP_PERCENT] = check.system_swap_percent
 
         return attributes
 

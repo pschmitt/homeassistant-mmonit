@@ -36,6 +36,18 @@ class MMonitCheck:
     pid: int | None = None
     ppid: int | None = None
     process_uptime: str | None = None
+    # Live system readings, populated only for system-type checks (type 5).
+    # Monit never reports *which* resource limit tripped ("Resource limit
+    # matched" is a single opaque bit), so we surface the readings and let the
+    # abnormal one speak for itself.
+    system_load_1: float | None = None
+    system_load_5: float | None = None
+    system_load_15: float | None = None
+    system_load_per_core: float | None = None
+    system_cpu_percent: float | None = None
+    system_memory_percent: float | None = None
+    system_swap_percent: float | None = None
+    resource_summary: str | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -62,6 +74,10 @@ class MMonitHost:
     monit_version: str | None
     monit_uptime: str | None
     checks: dict[str, MMonitCheck]
+    # Live system readings (standalone monit only). load_average is per-core
+    # (15-min); swap is a percentage.
+    load_average: float | None = None
+    swap: float | None = None
 
     @property
     def display_name(self) -> str:
