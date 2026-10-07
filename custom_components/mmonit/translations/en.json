@@ -5,7 +5,8 @@
         "title": "Add monitoring source",
         "menu_options": {
           "mmonit": "M/Monit server (centralized)",
-          "monit": "Monit agent (direct)"
+          "monit": "Monit agent (direct)",
+          "monarch": "Monarch server (API token)"
         }
       },
       "mmonit": {
@@ -37,7 +38,8 @@
           "url": "Server URL",
           "username": "Username",
           "password": "Password",
-          "verify_ssl": "Verify SSL certificate"
+          "verify_ssl": "Verify SSL certificate",
+          "api_token": "API token (leave blank to keep current)"
         }
       },
       "reauth_confirm": {
@@ -45,13 +47,24 @@
         "description": "The credentials for **{name}** were rejected. Enter the current username and password.",
         "data": {
           "username": "Username",
-          "password": "Password (leave blank to keep current)"
+          "password": "Password (leave blank to keep current)",
+          "api_token": "API token"
+        }
+      },
+      "monarch": {
+        "title": "Add Monarch server",
+        "description": "Connect Home Assistant to a Monarch server using an API token (create one under your user menu → API tokens).",
+        "data": {
+          "url": "Server URL",
+          "name": "Name",
+          "api_token": "API token",
+          "verify_ssl": "Verify SSL certificate"
         }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to the server.",
-      "invalid_auth": "Invalid username or password.",
+      "invalid_auth": "Invalid credentials or API token.",
       "unknown": "Unexpected error."
     },
     "abort": {

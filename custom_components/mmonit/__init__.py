@@ -12,8 +12,18 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .api import MMonitApiClient
-from .const import CONF_MODE, CONF_VERIFY_SSL, DOMAIN, MODE_MMONIT, MODE_MONIT, PLATFORMS
+from .const import (
+    CONF_API_TOKEN,
+    CONF_MODE,
+    CONF_VERIFY_SSL,
+    DOMAIN,
+    MODE_MMONIT,
+    MODE_MONARCH,
+    MODE_MONIT,
+    PLATFORMS,
+)
 from .coordinator import MMonitDataUpdateCoordinator
+from .monarch_api import MonarchApiClient
 from .monit_api import MonitApiClient
 from .registry import async_cleanup_registry
 
@@ -21,7 +31,7 @@ from .registry import async_cleanup_registry
 def create_client(
     hass: HomeAssistant,
     data: dict[str, Any],
-) -> MMonitApiClient | MonitApiClient:
+) -> MMonitApiClient | MonitApiClient | MonarchApiClient:
     """Create the right API client for the configured mode."""
     mode = data.get(CONF_MODE, MODE_MMONIT)
     session = async_create_clientsession(
@@ -29,6 +39,13 @@ def create_client(
         verify_ssl=data[CONF_VERIFY_SSL],
         cookie_jar=aiohttp.CookieJar(unsafe=True),
     )
+    if mode == MODE_MONARCH:
+        return MonarchApiClient(
+            session=session,
+            base_url=data[CONF_URL],
+            username="",
+            password=data[CONF_API_TOKEN],
+        )
     client_class = MonitApiClient if mode == MODE_MONIT else MMonitApiClient
     return client_class(
         session=session,

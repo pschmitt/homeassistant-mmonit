@@ -5,6 +5,8 @@
 
 - supports two modes per config entry:
   - **M/Monit (centralized)**: talks to an M/Monit server and auto-discovers all hosts it collects,
+  - **Monarch**: talks to a [Monarch](https://github.com/pschmitt/monarch) server (an open
+    source M/Monit alternative) with an API token and discovers every host it collects,
   - **Monit (direct)**: talks directly to the embedded HTTP interface of a single Monit instance —
     no M/Monit server required,
 - supports multiple servers/agents through config entries,
@@ -42,6 +44,10 @@ The integration is configured from the Home Assistant UI:
    - **Monit agent (direct)**: enter the URL of the Monit instance's embedded HTTP
      interface (e.g. `http://myhost:2812`) and the credentials of an
      `allow user:password` entry from its `set httpd` block.
+   - **Monarch server (API token)**: enter the Monarch URL and an API token. Create the
+     token in Monarch under the user menu (top right) -> **API tokens**. It acts as its
+     owner, so use an account with the *operator* role (or higher) if you want to
+     start/stop/restart services from Home Assistant; *viewer* is read-only.
 
 Each configured server or agent creates sensor entities for all discovered checks.
 

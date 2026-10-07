@@ -11,6 +11,8 @@ CONF_MODE = "mode"
 
 MODE_MMONIT = "mmonit"
 MODE_MONIT = "monit"
+MODE_MONARCH = "monarch"
+CONF_API_TOKEN = "api_token"
 
 DEFAULT_SCAN_INTERVAL = 120
 MIN_SCAN_INTERVAL = 30

@@ -23,6 +23,7 @@ from homeassistant.helpers.selector import (
 from . import create_client
 from .api import normalize_url
 from .const import (
+    CONF_API_TOKEN,
     CONF_MODE,
     CONF_VERIFY_SSL,
     DEFAULT_SCAN_INTERVAL,
@@ -30,6 +31,7 @@ from .const import (
     DOMAIN,
     MIN_SCAN_INTERVAL,
     MODE_MMONIT,
+    MODE_MONARCH,
     MODE_MONIT,
 )
 from .exceptions import MMonitApiError, MMonitAuthenticationError
@@ -42,6 +44,17 @@ ADD_SCHEMA = vol.Schema(
         vol.Optional(CONF_NAME): TextSelector(),
         vol.Required(CONF_USERNAME): TextSelector(),
         vol.Required(CONF_PASSWORD): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
+        vol.Required(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL): BooleanSelector(),
+    }
+)
+
+MONARCH_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_URL): TextSelector(),
+        vol.Optional(CONF_NAME): TextSelector(),
+        vol.Required(CONF_API_TOKEN): TextSelector(
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
         vol.Required(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL): BooleanSelector(),
@@ -88,7 +101,7 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
         del user_input
         return self.async_show_menu(
             step_id="user",
-            menu_options=[MODE_MMONIT, MODE_MONIT],
+            menu_options=[MODE_MMONIT, MODE_MONIT, MODE_MONARCH],
         )
 
     async def async_step_mmonit(
@@ -104,6 +117,13 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle adding a Monit agent directly."""
         return await self._async_step_add(MODE_MONIT, user_input)
+
+    async def async_step_monarch(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Handle adding a Monarch server."""
+        return await self._async_step_add(MODE_MONARCH, user_input)
 
     async def _async_step_add(
         self,
@@ -132,17 +152,20 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
                 data = {
                     CONF_MODE: mode,
                     CONF_URL: user_input[CONF_URL],
-                    CONF_USERNAME: user_input[CONF_USERNAME],
-                    CONF_PASSWORD: user_input[CONF_PASSWORD],
                     CONF_VERIFY_SSL: user_input[CONF_VERIFY_SSL],
                 }
+                if mode == MODE_MONARCH:
+                    data[CONF_API_TOKEN] = user_input[CONF_API_TOKEN].strip()
+                else:
+                    data[CONF_USERNAME] = user_input[CONF_USERNAME]
+                    data[CONF_PASSWORD] = user_input[CONF_PASSWORD]
                 options = {CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL}
                 title = user_input.get(CONF_NAME) or info["title"]
                 return self.async_create_entry(title=title, data=data, options=options)
 
         return self.async_show_form(
             step_id=mode,
-            data_schema=ADD_SCHEMA,
+            data_schema=MONARCH_SCHEMA if mode == MODE_MONARCH else ADD_SCHEMA,
             errors=errors,
         )
 
@@ -160,8 +183,22 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
         """Prompt for fresh credentials and validate them."""
         errors: dict[str, str] = {}
         entry = self._get_reauth_entry()
+        is_monarch = entry.data.get(CONF_MODE) == MODE_MONARCH
 
-        if user_input is not None:
+        if user_input is not None and is_monarch:
+            data = {**entry.data, CONF_API_TOKEN: user_input[CONF_API_TOKEN].strip()}
+            try:
+                await validate_input(self.hass, data)
+            except MMonitAuthenticationError:
+                errors["base"] = "invalid_auth"
+            except MMonitApiError:
+                errors["base"] = "cannot_connect"
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Unexpected exception during Monarch reauth")
+                errors["base"] = "unknown"
+            else:
+                return self.async_update_reload_and_abort(entry, data=data)
+        elif user_input is not None:
             password = user_input.get(CONF_PASSWORD) or entry.data[CONF_PASSWORD]
             data = {
                 **entry.data,
@@ -179,6 +216,20 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 return self.async_update_reload_and_abort(entry, data=data)
+
+        if is_monarch:
+            return self.async_show_form(
+                step_id="reauth_confirm",
+                data_schema=vol.Schema(
+                    {
+                        vol.Required(CONF_API_TOKEN): TextSelector(
+                            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                        )
+                    }
+                ),
+                errors=errors,
+                description_placeholders={"name": entry.title},
+            )
 
         return self.async_show_form(
             step_id="reauth_confirm",
@@ -203,12 +254,14 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
         """Handle reconfiguration of an existing entry."""
         errors: dict[str, str] = {}
         entry = self._get_reconfigure_entry()
+        is_monarch = entry.data.get(CONF_MODE) == MODE_MONARCH
+        secret_key = CONF_API_TOKEN if is_monarch else CONF_PASSWORD
 
         if user_input is not None:
             user_input[CONF_URL] = normalize_url(user_input[CONF_URL])
-            # An empty password means: keep the current one
-            if not user_input.get(CONF_PASSWORD):
-                user_input[CONF_PASSWORD] = entry.data[CONF_PASSWORD]
+            # An empty password/token means: keep the current one
+            if not user_input.get(secret_key):
+                user_input[secret_key] = entry.data[secret_key]
             data = {**entry.data, **user_input}
 
             try:
@@ -235,6 +288,25 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
 
         defaults = user_input or entry.data
+        if is_monarch:
+            return self.async_show_form(
+                step_id="reconfigure",
+                data_schema=vol.Schema(
+                    {
+                        vol.Required(
+                            CONF_URL, default=defaults.get(CONF_URL, "")
+                        ): TextSelector(),
+                        vol.Optional(CONF_API_TOKEN): TextSelector(
+                            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                        ),
+                        vol.Required(
+                            CONF_VERIFY_SSL,
+                            default=defaults.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
+                        ): BooleanSelector(),
+                    }
+                ),
+                errors=errors,
+            )
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=vol.Schema(
