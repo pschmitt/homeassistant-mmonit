@@ -5,6 +5,10 @@
     "@pschmitt"
   ],
   "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http"
+  ],
   "documentation": "https://github.com/pschmitt/homeassistant-mmonit",
   "integration_type": "hub",
   "iot_class": "local_polling",
@@ -12,6 +16,6 @@
   "loggers": [
     "custom_components.mmonit"
   ],
-  "version": "0.4.0"
+  "version": "0.5.0"
 }
 

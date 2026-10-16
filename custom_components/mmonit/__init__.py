@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+import hashlib
+import logging
+from pathlib import Path
 from typing import Any
 
 import aiohttp
 
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.lovelace.const import LOVELACE_DATA
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
+from homeassistant.helpers.typing import ConfigType
 
 from .api import MMonitApiClient
 from .const import (
@@ -26,6 +33,12 @@ from .coordinator import MMonitDataUpdateCoordinator
 from .monarch_api import MonarchApiClient
 from .monit_api import MonitApiClient
 from .registry import async_cleanup_registry
+
+_LOGGER = logging.getLogger(__name__)
+
+CARD_URL = f"/{DOMAIN}/monit-strategy.js"
+CARD_PATH = Path(__file__).parent / "frontend" / "monit-strategy.js"
+LEGACY_CARD_URL = f"/local/{CARD_PATH.name}"
 
 
 def create_client(
@@ -55,11 +68,55 @@ def create_client(
     )
 
 
-async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
-    """Set up the M/Monit integration."""
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the M/Monit integration, serve strategy and register resource."""
     del config
     hass.data.setdefault(DOMAIN, {})
+
+    if CARD_PATH.exists():
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(CARD_URL, str(CARD_PATH), cache_headers=False)]
+        )
+        digest = await hass.async_add_executor_job(
+            lambda: hashlib.sha256(CARD_PATH.read_bytes()).hexdigest()[:10]
+        )
+        await _async_register_card(hass, f"{CARD_URL}?v={digest}")
+
     return True
+
+
+async def _async_register_card(hass: HomeAssistant, url: str) -> None:
+    """Keep exactly one Lovelace resource pointing at the current strategy."""
+    lovelace = hass.data.get(LOVELACE_DATA)
+    if lovelace is None or lovelace.resource_mode != "storage":
+        add_extra_js_url(hass, url)
+        return
+    resources = lovelace.resources
+    await resources.async_get_info()  # loads the collection
+
+    # Remove legacy /local/ resource if present
+    legacy = [
+        item
+        for item in resources.async_items()
+        if item["url"].split("?")[0] == LEGACY_CARD_URL
+    ]
+    for old in legacy:
+        await resources.async_delete_item(old["id"])
+
+    mine = [
+        item
+        for item in resources.async_items()
+        if item["url"].split("?")[0] == CARD_URL
+    ]
+    for duplicate in mine[1:]:
+        await resources.async_delete_item(duplicate["id"])
+    if not mine:
+        _LOGGER.info("Adding M/Monit strategy as a dashboard resource")
+        await resources.async_create_item({"res_type": "module", "url": url})
+    elif mine[0]["url"] != url:
+        await resources.async_update_item(
+            mine[0]["id"], {"res_type": "module", "url": url}
+        )
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
