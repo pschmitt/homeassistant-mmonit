@@ -15,4 +15,3 @@ class MMonitApiError(MMonitError):
 
 class MMonitAuthenticationError(MMonitApiError):
     """Raised when the M/Monit credentials are rejected."""
-

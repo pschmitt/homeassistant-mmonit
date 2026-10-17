@@ -92,9 +92,7 @@ class MonarchApiClient:
     def _numeric_id(self, host_id: str) -> str:
         return str(self._ids.get(host_id, host_id))
 
-    async def _request(
-        self, method: str, path: str, json: dict[str, Any] | None = None
-    ) -> Any:
+    async def _request(self, method: str, path: str, json: dict[str, Any] | None = None) -> Any:
         url = f"{self._base_url}{path}"
         try:
             async with asyncio.timeout(self._request_timeout):
@@ -161,18 +159,14 @@ class MonarchApiClient:
         os_info = h.get("os") or {}
         cpu_count = h.get("cpu_count")
         load_15 = load[2]
-        load_per_core = (
-            round(load_15 / cpu_count, 2) if load_15 is not None and cpu_count else None
-        )
+        load_per_core = round(load_15 / cpu_count, 2) if load_15 is not None and cpu_count else None
         swap = system.get("swap_percent")
         cpu = system.get("cpu")
         memory = system.get("mem_percent")
 
         checks = {
             cid: (
-                _with_system_readings(
-                    c, load, load_per_core, cpu, memory, swap
-                )
+                _with_system_readings(c, load, load_per_core, cpu, memory, swap)
                 if c.type_id == 5
                 else c
             )

@@ -68,9 +68,7 @@ async def async_setup_entry(
             async_add_entities(new_entities)
 
     async_add_missing_entities()
-    config_entry.async_on_unload(
-        coordinator.async_add_listener(async_add_missing_entities)
-    )
+    config_entry.async_on_unload(coordinator.async_add_listener(async_add_missing_entities))
 
 
 class MMonitHostStatusBinarySensor(MMonitHostEntity, BinarySensorEntity):
@@ -87,9 +85,7 @@ class MMonitHostStatusBinarySensor(MMonitHostEntity, BinarySensorEntity):
         """Initialize the binary sensor."""
         super().__init__(coordinator, host_id)
         self._attr_unique_id = unique_id
-        self.entity_id = suggest_entity_id(
-            "binary_sensor", coordinator, host_id, "status"
-        )
+        self.entity_id = suggest_entity_id("binary_sensor", coordinator, host_id, "status")
 
     @property
     def name(self) -> str:

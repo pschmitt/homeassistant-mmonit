@@ -6,7 +6,8 @@ from collections.abc import Mapping
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN, HOST_SENSOR_KEYS
 from .entity import iter_host_device_identifiers
@@ -43,8 +44,7 @@ def async_cleanup_registry(
     device_registry = dr.async_get(hass)
 
     current_unique_ids = {
-        get_host_status_unique_id(config_entry.entry_id, host.host_id)
-        for host in hosts.values()
+        get_host_status_unique_id(config_entry.entry_id, host.host_id) for host in hosts.values()
     }
     current_unique_ids.update(
         get_host_metric_unique_id(config_entry.entry_id, host.host_id, metric_key)
@@ -85,8 +85,7 @@ def async_cleanup_registry(
         mmonit_identifiers = {
             identifier
             for identifier in device_entry.identifiers
-            if identifier[0] == DOMAIN
-            and identifier[1].startswith(f"{config_entry.entry_id}:")
+            if identifier[0] == DOMAIN and identifier[1].startswith(f"{config_entry.entry_id}:")
         }
         if not mmonit_identifiers:
             continue

@@ -70,9 +70,7 @@ class MMonitDataUpdateCoordinator(DataUpdateCoordinator[dict[str, MMonitHost]]):
 
         return self._backfill_transient_hosts(fresh)
 
-    def _backfill_transient_hosts(
-        self, fresh: dict[str, MMonitHost]
-    ) -> dict[str, MMonitHost]:
+    def _backfill_transient_hosts(self, fresh: dict[str, MMonitHost]) -> dict[str, MMonitHost]:
         """Keep recently-seen hosts that vanished, until they've been gone a while.
 
         A per-host detail fetch can fail transiently, dropping that host from a
@@ -100,4 +98,3 @@ class MMonitDataUpdateCoordinator(DataUpdateCoordinator[dict[str, MMonitHost]]):
                 self._missing_strikes.pop(host_id, None)
                 _LOGGER.debug("Host %s gone for %d updates, dropping", host_id, strikes)
         return merged
-

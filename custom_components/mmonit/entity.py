@@ -41,10 +41,7 @@ def iter_host_device_identifiers(
     host_ids: Iterable[str],
 ) -> set[tuple[str, str]]:
     """Return the device identifiers for a collection of host IDs."""
-    return {
-        (DOMAIN, get_host_device_identifier(entry_id, host_id))
-        for host_id in host_ids
-    }
+    return {(DOMAIN, get_host_device_identifier(entry_id, host_id)) for host_id in host_ids}
 
 
 class MMonitHostEntity(CoordinatorEntity[MMonitDataUpdateCoordinator]):

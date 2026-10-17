@@ -87,13 +87,10 @@ class MMonitApiClient:
 
         semaphore = asyncio.Semaphore(10)
         valid_records = [
-            record
-            for record in records
-            if isinstance(record, Mapping) and "id" in record
+            record for record in records if isinstance(record, Mapping) and "id" in record
         ]
         detail_tasks = [
-            self._async_fetch_host_detail(semaphore, record)
-            for record in valid_records
+            self._async_fetch_host_detail(semaphore, record) for record in valid_records
         ]
         detail_results = await asyncio.gather(*detail_tasks, return_exceptions=True)
 
@@ -104,7 +101,9 @@ class MMonitApiClient:
                 continue
 
             if isinstance(detail_result, Exception):
-                _LOGGER.warning("Skipping host %s after detail fetch failed: %s", host_id, detail_result)
+                _LOGGER.warning(
+                    "Skipping host %s after detail fetch failed: %s", host_id, detail_result
+                )
                 continue
 
             host = self._normalize_host(record, detail_result)
@@ -252,7 +251,9 @@ class MMonitApiClient:
         """Normalize one host from the summary and detail payloads."""
         detail_payload, data_collected = detail_result
         detail_records = self._extract_records(detail_payload)
-        host_payload = detail_records.get("host") if isinstance(detail_records, Mapping) else detail_records
+        host_payload = (
+            detail_records.get("host") if isinstance(detail_records, Mapping) else detail_records
+        )
         if not isinstance(host_payload, Mapping):
             raise MMonitApiError("Unexpected host detail payload")
 
@@ -261,7 +262,9 @@ class MMonitApiClient:
             if not isinstance(service, Mapping):
                 continue
 
-            service_id = str(service.get("id") or service.get("nameid") or service.get("name") or "")
+            service_id = str(
+                service.get("id") or service.get("nameid") or service.get("name") or ""
+            )
             if not service_id:
                 continue
 
@@ -289,15 +292,22 @@ class MMonitApiClient:
 
         return MMonitHost(
             host_id=str(summary.get("id") or host_payload.get("id") or ""),
-            name=str(summary.get("hostname") or host_payload.get("name") or host_payload.get("hostname") or ""),
-            hostname=self._as_str(host_payload.get("hostname")) or self._as_str(summary.get("hostname")),
+            name=str(
+                summary.get("hostname")
+                or host_payload.get("name")
+                or host_payload.get("hostname")
+                or ""
+            ),
+            hostname=self._as_str(host_payload.get("hostname"))
+            or self._as_str(summary.get("hostname")),
             summary=str(summary.get("status") or ""),
             led=self._as_int(summary.get("led")),
             cpu=self._as_float(summary.get("cpu")),
             memory=self._as_float(summary.get("mem")),
             heartbeat=self._as_int(summary.get("heartbeat")),
             events=self._as_int(summary.get("events")),
-            uptime=self._as_str(host_payload.get("uptime")) or self._as_str(host_payload.get("monit", {}).get("uptime")),
+            uptime=self._as_str(host_payload.get("uptime"))
+            or self._as_str(host_payload.get("monit", {}).get("uptime")),
             cpu_count=self._as_int(host_payload.get("cpu", {}).get("count")),
             memory_total_bytes=self._kilobytes_to_bytes(host_payload.get("memory", {}).get("size")),
             swap_total_bytes=self._kilobytes_to_bytes(host_payload.get("swap", {}).get("size")),
@@ -455,7 +465,6 @@ class MMonitApiClient:
             method="POST",
             data={"hostid": host_id, "service": check_name, "action": action},
         )
-
 
     def _kilobytes_to_bytes(self, value: Any) -> int | None:
         """Convert a kibibyte value to bytes when possible."""

@@ -7,7 +7,8 @@
   "config_flow": true,
   "dependencies": [
     "frontend",
-    "http"
+    "http",
+    "lovelace"
   ],
   "documentation": "https://github.com/pschmitt/homeassistant-mmonit",
   "integration_type": "hub",

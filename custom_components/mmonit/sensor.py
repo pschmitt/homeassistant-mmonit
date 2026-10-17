@@ -5,8 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
-from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfInformation
 from homeassistant.core import HomeAssistant, callback
@@ -22,9 +26,9 @@ from .const import (
     ATTR_CHECK_PATH,
     ATTR_CHECK_TYPE,
     ATTR_DATA_COLLECTED,
+    ATTR_EVENTS,
     ATTR_EVENTS_URL,
     ATTR_EVERY,
-    ATTR_EVENTS,
     ATTR_LAST_EVENTS,
     ATTR_LAST_EXIT_VALUE,
     ATTR_LAST_OUTPUT,
@@ -193,10 +197,7 @@ async def async_setup_entry(
 
         for host in coordinator.data.values():
             for description in HOST_SENSOR_DESCRIPTIONS:
-                if (
-                    description.require_value
-                    and getattr(host, description.value_attr) is None
-                ):
+                if description.require_value and getattr(host, description.value_attr) is None:
                     continue
                 entity_unique_id = get_host_metric_unique_id(
                     config_entry.entry_id,
@@ -245,9 +246,7 @@ async def async_setup_entry(
             async_add_entities(new_entities)
 
     async_add_missing_entities()
-    config_entry.async_on_unload(
-        coordinator.async_add_listener(async_add_missing_entities)
-    )
+    config_entry.async_on_unload(coordinator.async_add_listener(async_add_missing_entities))
 
     platform = async_get_current_platform()
     for _svc, _action in (
@@ -280,9 +279,7 @@ class MMonitHostSensor(MMonitHostEntity, SensorEntity):
         super().__init__(coordinator, host_id)
         self.entity_description = description
         self._attr_unique_id = unique_id
-        self.entity_id = suggest_entity_id(
-            "sensor", coordinator, host_id, str(description.name)
-        )
+        self.entity_id = suggest_entity_id("sensor", coordinator, host_id, str(description.name))
 
     @property
     def native_value(self) -> str | float | int | None:
@@ -481,7 +478,5 @@ class MMonitCheckSensor(MMonitEntity, SensorEntity):
         await self._async_monit_action("unmonitor")
 
     async def _async_monit_action(self, action: str) -> None:
-        await self.coordinator.client.async_action(
-            self._host_id, self._check_id, action
-        )
+        await self.coordinator.client.async_action(self._host_id, self._check_id, action)
         await self.coordinator.async_request_refresh()

@@ -6,9 +6,14 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
-from homeassistant.const import CONF_NAME, CONF_PASSWORD, CONF_SCAN_INTERVAL, CONF_URL, CONF_USERNAME
+from homeassistant.const import (
+    CONF_NAME,
+    CONF_PASSWORD,
+    CONF_SCAN_INTERVAL,
+    CONF_URL,
+    CONF_USERNAME,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
@@ -276,10 +281,7 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 new_unique_id = info["unique_id"]
                 for other in self._async_current_entries():
-                    if (
-                        other.entry_id != entry.entry_id
-                        and other.unique_id == new_unique_id
-                    ):
+                    if other.entry_id != entry.entry_id and other.unique_id == new_unique_id:
                         return self.async_abort(reason="already_configured")
                 return self.async_update_reload_and_abort(
                     entry,
@@ -293,9 +295,7 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
                 step_id="reconfigure",
                 data_schema=vol.Schema(
                     {
-                        vol.Required(
-                            CONF_URL, default=defaults.get(CONF_URL, "")
-                        ): TextSelector(),
+                        vol.Required(CONF_URL, default=defaults.get(CONF_URL, "")): TextSelector(),
                         vol.Optional(CONF_API_TOKEN): TextSelector(
                             TextSelectorConfig(type=TextSelectorType.PASSWORD)
                         ),
@@ -311,9 +311,7 @@ class MMonitConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reconfigure",
             data_schema=vol.Schema(
                 {
-                    vol.Required(
-                        CONF_URL, default=defaults.get(CONF_URL, "")
-                    ): TextSelector(),
+                    vol.Required(CONF_URL, default=defaults.get(CONF_URL, "")): TextSelector(),
                     vol.Required(
                         CONF_USERNAME, default=defaults.get(CONF_USERNAME, "")
                     ): TextSelector(),

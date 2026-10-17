@@ -206,9 +206,7 @@ class MonitApiClient:
             # Per-core 15-min load is the value monit's default resource limits
             # alert on; keep it in the check's resource_summary only.
             load_per_core = (
-                round(load_15 / cpu_count, 2)
-                if load_15 is not None and cpu_count
-                else None
+                round(load_15 / cpu_count, 2) if load_15 is not None and cpu_count else None
             )
 
             # Attach live readings to the system check so a "Resource limit
@@ -269,11 +267,24 @@ class MonitApiClient:
 
         check_group = self._as_str(service.findtext("group"))
         on_reboot_val = self._as_int(service.findtext("onreboot"))
-        on_reboot = {0: "start", 1: "stop", 2: "noaction"}.get(on_reboot_val) if on_reboot_val is not None else None
+        on_reboot = (
+            {0: "start", 1: "stop", 2: "noaction"}.get(on_reboot_val)
+            if on_reboot_val is not None
+            else None
+        )
         pending_action_val = self._as_int(service.findtext("pendingaction"))
-        pending_action = {
-            0: "none", 1: "stop", 2: "start", 3: "restart", 4: "alert", 5: "exec",
-        }.get(pending_action_val) if pending_action_val is not None else None
+        pending_action = (
+            {
+                0: "none",
+                1: "stop",
+                2: "start",
+                3: "restart",
+                4: "alert",
+                5: "exec",
+            }.get(pending_action_val)
+            if pending_action_val is not None
+            else None
+        )
         action_start = self._as_str(service.findtext("start/path"))
         action_stop = self._as_str(service.findtext("stop/path"))
         action_restart = self._as_str(service.findtext("restart/path"))
@@ -426,9 +437,7 @@ class MonitApiClient:
         if status == 0:
             return ""
         descriptions = [
-            description
-            for bit, description in MONIT_EVENT_DESCRIPTIONS.items()
-            if status & bit
+            description for bit, description in MONIT_EVENT_DESCRIPTIONS.items() if status & bit
         ]
         if not descriptions:
             return f"Failed (status {status})"
@@ -544,9 +553,7 @@ class MonitApiClient:
 
                 security_token = get_resp.cookies.get("securitytoken")
                 if security_token is None:
-                    raise MMonitApiError(
-                        f"No securitytoken cookie from Monit for {check_name!r}"
-                    )
+                    raise MMonitApiError(f"No securitytoken cookie from Monit for {check_name!r}")
 
                 response = await self._session.post(
                     url,
@@ -561,13 +568,9 @@ class MonitApiClient:
                 raise MMonitAuthenticationError(
                     f"Authentication failed sending {action!r} to {check_name!r}"
                 ) from err
-            raise MMonitApiError(
-                f"HTTP {err.status} sending {action!r} to {check_name!r}"
-            ) from err
+            raise MMonitApiError(f"HTTP {err.status} sending {action!r} to {check_name!r}") from err
         except (ClientError, TimeoutError) as err:
-            raise MMonitApiError(
-                f"Request failed sending {action!r} to {check_name!r}"
-            ) from err
+            raise MMonitApiError(f"Request failed sending {action!r} to {check_name!r}") from err
 
     def _kilobytes_to_bytes(self, value: str | None) -> int | None:
         """Convert a kibibyte value to bytes when possible."""
