@@ -117,23 +117,27 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     """Set up M/Monit from a config entry."""
     client = create_client(hass, dict(config_entry.data))
     coordinator = MMonitDataUpdateCoordinator(hass, client, config_entry)
-    await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][config_entry.entry_id] = {
         "client": client,
         "coordinator": coordinator,
     }
 
+    if coordinator.data is None:
+        coordinator.last_update_success = False
     await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
-    async_cleanup_registry(hass, config_entry, coordinator.data)
 
     @callback
     def async_cleanup_listener() -> None:
         """Remove stale entities and devices after coordinator updates."""
-        async_cleanup_registry(hass, config_entry, coordinator.data)
+        if coordinator.last_update_success and coordinator.data is not None:
+            async_cleanup_registry(hass, config_entry, coordinator.data)
 
     config_entry.async_on_unload(coordinator.async_add_listener(async_cleanup_listener))
     config_entry.async_on_unload(config_entry.add_update_listener(async_update_listener))
+    config_entry.async_create_background_task(
+        hass, coordinator.async_refresh(), "mmonit_first_refresh"
+    )
     return True
 
 

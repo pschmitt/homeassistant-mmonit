@@ -43,7 +43,7 @@ async def async_setup_entry(
         current_unique_ids: set[str] = set()
         new_entities: list[MMonitHostStatusBinarySensor] = []
 
-        for host in coordinator.data.values():
+        for host in (coordinator.data or {}).values():
             entity_unique_id = get_host_status_unique_id(
                 config_entry.entry_id,
                 host.host_id,

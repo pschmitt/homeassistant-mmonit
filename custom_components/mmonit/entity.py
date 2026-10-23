@@ -31,7 +31,7 @@ def suggest_entity_id(
     entries keep their entity ids.
     """
     mode = coordinator.config_entry.data.get(CONF_MODE, MODE_MMONIT)
-    host = coordinator.data.get(host_id)
+    host = (coordinator.data or {}).get(host_id)
     host_name = host.display_name if host else host_id
     return f"{domain}.{slugify(f'{mode} {host_name} {suffix}')}"
 
@@ -61,7 +61,7 @@ class MMonitHostEntity(CoordinatorEntity[MMonitDataUpdateCoordinator]):
     @property
     def host(self) -> MMonitHost | None:
         """Return the current host payload."""
-        return self.coordinator.data.get(self._host_id)
+        return (self.coordinator.data or {}).get(self._host_id)
 
     @property
     def available(self) -> bool:

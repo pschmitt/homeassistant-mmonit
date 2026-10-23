@@ -195,7 +195,7 @@ async def async_setup_entry(
         current_unique_ids: set[str] = set()
         new_entities: list[SensorEntity] = []
 
-        for host in coordinator.data.values():
+        for host in (coordinator.data or {}).values():
             for description in HOST_SENSOR_DESCRIPTIONS:
                 if description.require_value and getattr(host, description.value_attr) is None:
                     continue
@@ -218,7 +218,7 @@ async def async_setup_entry(
                     )
                 )
 
-        for host in coordinator.data.values():
+        for host in (coordinator.data or {}).values():
             for check in host.checks.values():
                 entity_unique_id = get_check_unique_id(
                     config_entry.entry_id,
@@ -350,7 +350,7 @@ class MMonitCheckSensor(MMonitEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator, host_id, check_id)
         self._attr_unique_id = unique_id
-        host = coordinator.data.get(host_id)
+        host = (coordinator.data or {}).get(host_id)
         check = host.checks.get(check_id) if host else None
         self.entity_id = suggest_entity_id(
             "sensor", coordinator, host_id, check.name if check else check_id
