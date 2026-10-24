@@ -22,24 +22,6 @@ const AP_HINTS = ["wax", "wrt", "turris", "ap"];
 
 const DOWN_STATES = ["unavailable", "unknown"];
 
-// Jinja prelude over the host status binary sensors: `failing` (failing
-// checks, from each host's failed_checks) and `down` (unreachable hosts).
-// Ten entities instead of every sensor in HA, re-rendered on each change.
-function fleetPrelude(statusIds) {
-  return (
-    `{%- set hs = ${JSON.stringify(statusIds)} -%}` +
-    "{%- set failing = hs | map('state_attr', 'failed_checks') | select | map('count') | sum -%}" +
-    `{%- set down = hs | select('is_state', ${JSON.stringify(DOWN_STATES)}) | list | count -%}`
-  );
-}
-
-// "All systems operational" or "2 failing checks · 1 host unreachable".
-const J_FLEET_SUMMARY =
-  "{%- set parts = [] -%}" +
-  "{%- if failing -%}{%- set parts = parts + [failing ~ ' failing check' ~ ('s' if failing != 1 else '')] -%}{%- endif -%}" +
-  "{%- if down -%}{%- set parts = parts + [down ~ ' host' ~ ('s' if down != 1 else '') ~ ' unreachable'] -%}{%- endif -%}" +
-  "{{ parts | join(' · ') if parts else 'All systems operational' }}";
-
 // ─── tiny helpers ────────────────────────────────────────────────────────────
 
 function hostIcon(name) {
@@ -393,6 +375,149 @@ function hostPopup(host, manufacturer) {
   };
 }
 
+// ─── fleet summary card ──────────────────────────────────────────────────────
+
+class MonitFleetSummaryCard extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+  }
+
+  setConfig(config) {
+    this.config = config;
+    this.render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this.render();
+  }
+
+  getCardSize() {
+    return 3;
+  }
+
+  render() {
+    if (!this.config || !this._hass) return;
+
+    const categories = [
+      { key: "healthy", label: "Healthy", color: "#39d98a" },
+      { key: "failed", label: "Needs attention", color: "#ff657a" },
+      { key: "starting", label: "Starting", color: "#ffc857" },
+      { key: "unreachable", label: "Unreachable", color: "#9aa6b2" },
+      { key: "unmonitored", label: "Unmonitored", color: "#6f83ff" },
+    ];
+    const counts = Object.fromEntries(categories.map(({ key }) => [key, 0]));
+
+    for (const entityId of this.config.entities || []) {
+      const state = this._hass.states[entityId];
+      if (!state || ["unknown", "unavailable"].includes(state.state)) {
+        counts.unreachable += 1;
+      } else if (state.state === "on") {
+        counts.failed += 1;
+      } else if (state.attributes?.led === 1) {
+        counts.starting += 1;
+      } else if (state.attributes?.led === 3) {
+        counts.unmonitored += 1;
+      } else {
+        counts.healthy += 1;
+      }
+    }
+
+    const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+    const issues = counts.failed + counts.unreachable;
+    const headline = issues
+      ? `${issues} node${issues === 1 ? "" : "s"} need attention`
+      : counts.starting
+        ? "Fleet is coming online"
+        : "All systems operational";
+    const circumference = 2 * Math.PI * 48;
+    let offset = 0;
+    const rings = categories
+      .filter(({ key }) => counts[key] > 0)
+      .map(({ key, color, label }) => {
+        const length = (counts[key] / Math.max(total, 1)) * circumference;
+        const circle = `<circle class="segment" data-key="${key}" cx="64" cy="64" r="48" fill="none" stroke="${color}" stroke-width="14" stroke-dasharray="${length} ${circumference - length}" stroke-dashoffset="${-offset}" transform="rotate(-90 64 64)"><title>${label}: ${counts[key]}</title></circle>`;
+        offset += length;
+        return circle;
+      })
+      .join("");
+    const legend = categories
+      .filter(({ key }) => counts[key] > 0)
+      .map(
+        ({ key, label, color }) =>
+          `<div class="legend-row" data-key="${key}" tabindex="0"><span class="dot" style="--accent:${color}"></span><span class="label">${label}</span><strong>${counts[key]}</strong></div>`,
+      )
+      .join("");
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display:block; }
+        .card {
+          --surface: var(--ha-card-background, var(--card-background-color, #1d2026));
+          --muted: var(--secondary-text-color, #a8b0bc);
+          background: linear-gradient(145deg, color-mix(in srgb, var(--surface) 94%, #52617a), var(--surface));
+          border: 1px solid color-mix(in srgb, var(--primary-text-color, #fff) 9%, transparent);
+          border-radius: 18px; box-shadow: 0 8px 24px #0002; color: var(--primary-text-color);
+          padding: 18px 20px; transition: box-shadow 180ms ease, border-color 180ms ease;
+        }
+        .card:hover { box-shadow: 0 9px 26px #0003; border-color: color-mix(in srgb, #79a9ff 35%, transparent); }
+        .layout { display:grid; grid-template-columns:132px minmax(0,1fr); align-items:center; gap:18px; }
+        .chart { width:132px; height:132px; overflow:visible; }
+        .track { stroke:color-mix(in srgb, var(--primary-text-color,#fff) 8%,transparent); }
+        .segment { cursor:help; transition:stroke-width 160ms ease, filter 160ms ease, opacity 160ms ease; }
+        .segment:hover { stroke-width:20px; filter:drop-shadow(0 0 5px #fff8); }
+        .center-count { fill:var(--primary-text-color); font-size:25px; font-weight:700; text-anchor:middle; dominant-baseline:central; }
+        .center-label { fill:var(--muted); font-size:9px; letter-spacing:1.2px; text-anchor:middle; }
+        .content { min-width:0; }
+        .headline { font-size:17px; font-weight:650; line-height:1.25; margin:0 0 4px; }
+        .subhead { color:var(--muted); font-size:12px; margin:0 0 13px; }
+        .legend { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px 14px; }
+        .legend-row { align-items:center; border-radius:8px; display:flex; gap:7px; min-width:0; padding:3px 5px; transition:background 150ms ease,transform 150ms ease; }
+        .legend-row:hover,.legend-row:focus-visible { background:color-mix(in srgb,var(--primary-text-color,#fff) 7%,transparent); outline:none; }
+        .dot { background:var(--accent); border-radius:50%; flex:none; height:8px; width:8px; box-shadow:0 0 10px color-mix(in srgb,var(--accent) 50%,transparent); }
+        .label { color:var(--muted); font-size:12px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .legend-row strong { font-size:12px; margin-left:0; }
+        @media(max-width:500px) { .card{padding:15px}.layout{grid-template-columns:100px minmax(0,1fr);gap:12px}.chart{width:100px;height:100px}.legend{grid-template-columns:1fr;gap:3px}.headline{font-size:15px} }
+      </style>
+      <ha-card class="card"><div class="layout">
+        <svg class="chart" viewBox="0 0 128 128" role="img" aria-label="${headline}">
+          <circle class="track" cx="64" cy="64" r="48" fill="none" stroke-width="14"></circle>
+          ${rings}<text class="center-count" x="64" y="61">${total}</text>
+          <text class="center-label" x="64" y="80">NODES</text>
+        </svg>
+        <div class="content"><p class="headline">${headline}</p>
+          <p class="subhead">${total} monitored node${total === 1 ? "" : "s"} · live status</p>
+          <div class="legend">${legend || '<span class="label">No hosts found</span>'}</div>
+        </div>
+      </div></ha-card>`;
+
+    this.shadowRoot.querySelectorAll("[data-key]").forEach((item) => {
+      const key = item.getAttribute("data-key");
+      item.addEventListener("mouseenter", () => this.highlight(key));
+      item.addEventListener("mouseleave", () => this.highlight(null));
+      item.addEventListener("focus", () => this.highlight(key));
+      item.addEventListener("blur", () => this.highlight(null));
+    });
+  }
+
+  highlight(key) {
+    this.shadowRoot.querySelectorAll(".segment").forEach((segment) => {
+      segment.style.opacity = !key || segment.dataset.key === key ? "1" : "0.32";
+    });
+  }
+}
+
+if (!customElements.get("monit-fleet-summary-card")) {
+  customElements.define("monit-fleet-summary-card", MonitFleetSummaryCard);
+  window.customCards ||= [];
+  window.customCards.push({
+    type: "monit-fleet-summary-card",
+    name: "Monit Fleet Summary",
+    description: "Live status summary for Monit or Monarch hosts.",
+  });
+}
+
 // ─── discovery ───────────────────────────────────────────────────────────────
 
 async function discoverHosts(hass, manufacturer) {
@@ -470,21 +595,10 @@ class MonitViewStrategy {
     }
 
     const statusIds = hosts.map((h) => h.status);
-    const prelude = fleetPrelude(statusIds);
-
     // ── top section: live summary, then whatever needs attention ──
     const summary = {
-      type: "custom:mushroom-template-card",
-      primary: prelude + J_FLEET_SUMMARY,
-      secondary:
-        prelude +
-        `{{ hs | count - down }} of {{ hs | count }} hosts reporting`,
-      icon:
-        prelude +
-        "{{ 'mdi:alert-decagram' if failing else 'mdi:lan-disconnect' if down else 'mdi:check-decagram' }}",
-      icon_color:
-        prelude + "{{ 'red' if failing else 'amber' if down else 'green' }}",
-      grid_options: { columns: 12, rows: 1 },
+      type: "custom:monit-fleet-summary-card",
+      entities: statusIds,
     };
 
     // Failing checks of every host, kept current without a page reload.
