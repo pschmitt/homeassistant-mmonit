@@ -465,6 +465,7 @@ class MonitFleetSummaryCard extends HTMLElement {
       </div></ha-card>`;
 
     this._rendered = true;
+    this._lastSnapshot = null;
     this.shadowRoot.querySelectorAll(".legend-row").forEach((item) => {
       const key = item.getAttribute("data-key");
       item.addEventListener("mouseenter", () => this.highlight(key));
@@ -493,6 +494,10 @@ class MonitFleetSummaryCard extends HTMLElement {
         counts.healthy += 1;
       }
     }
+
+    const snapshot = JSON.stringify(counts);
+    if (snapshot === this._lastSnapshot) return;
+    this._lastSnapshot = snapshot;
 
     const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
     const issues = counts.failed + counts.unreachable;
