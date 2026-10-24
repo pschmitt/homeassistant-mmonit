@@ -418,7 +418,7 @@ class MonitFleetSummaryCard extends HTMLElement {
     const legend = this.categories
       .map(
         ({ key, label, color }) =>
-          `<div class="legend-row" data-key="${key}" tabindex="0"><span class="dot" style="--accent:${color}"></span><span class="label">${label}</span><strong class="count">0</strong></div>`,
+          `<div class="legend-row" data-key="${key}" tabindex="0"><span class="dot" style="--accent:${color}"></span><span class="label">${label}</span><strong class="count">0</strong><span class="host-tooltip" role="tooltip"></span></div>`,
       )
       .join("");
 
@@ -446,7 +446,10 @@ class MonitFleetSummaryCard extends HTMLElement {
         .subhead { color:var(--muted); font-size:12px; margin:0 0 13px; }
         .legend { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px 14px; }
         .legend-row { align-items:center; border-radius:8px; display:flex; gap:7px; min-width:0; padding:3px 5px; transition:background 150ms ease; }
-        .legend-row:hover,.legend-row:focus-visible { background:color-mix(in srgb,var(--primary-text-color,#fff) 7%,transparent); outline:none; }
+        .legend-row:hover,.legend-row:focus-visible { background:color-mix(in srgb,var(--primary-text-color,#fff) 7%,transparent); outline:none; z-index:20; }
+        .host-tooltip { background:var(--card-background-color,#202329); border:1px solid color-mix(in srgb,var(--primary-text-color,#fff) 12%,transparent); border-radius:8px; box-shadow:0 6px 18px #0005; color:var(--primary-text-color); display:none; font-size:12px; left:0; line-height:1.45; max-height:180px; max-width:min(260px,calc(100vw - 48px)); overflow:auto; padding:8px 10px; pointer-events:auto; position:absolute; top:calc(100% + 3px); white-space:pre-line; width:max-content; z-index:10; }
+        .legend-row { position:relative; }
+        .legend-row:hover .host-tooltip,.legend-row:focus-visible .host-tooltip { display:block; }
         .dot { background:var(--accent); border-radius:50%; flex:none; height:8px; width:8px; box-shadow:0 0 10px color-mix(in srgb,var(--accent) 50%,transparent); }
         .label { color:var(--muted); font-size:12px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .count { font-size:12px; }
@@ -480,22 +483,34 @@ class MonitFleetSummaryCard extends HTMLElement {
     if (!this.config || !this._hass || !this._rendered) return;
 
     const counts = Object.fromEntries(this.categories.map(({ key }) => [key, 0]));
-    for (const entityId of this.config.entities || []) {
+    const hostsByCategory = Object.fromEntries(
+      this.categories.map(({ key }) => [key, []]),
+    );
+    const hosts = this.config.hosts || (this.config.entities || []).map((entity) => ({ entity }));
+    for (const host of hosts) {
+      const entityId = host.entity;
       const state = this._hass.states[entityId];
+      let key;
       if (!state || ["unknown", "unavailable"].includes(state.state)) {
-        counts.unreachable += 1;
+        key = "unreachable";
       } else if (state.state === "on") {
-        counts.failed += 1;
+        key = "failed";
       } else if (state.attributes?.led === 1) {
-        counts.starting += 1;
+        key = "starting";
       } else if (state.attributes?.led === 3) {
-        counts.unmonitored += 1;
+        key = "unmonitored";
       } else {
-        counts.healthy += 1;
+        key = "healthy";
       }
+      counts[key] += 1;
+      const fallbackName = (state?.attributes?.friendly_name || entityId).replace(
+        /\s+status$/i,
+        "",
+      );
+      hostsByCategory[key].push(host.name || fallbackName);
     }
 
-    const snapshot = JSON.stringify(counts);
+    const snapshot = JSON.stringify({ counts, hostsByCategory });
     if (snapshot === this._lastSnapshot) return;
     this._lastSnapshot = snapshot;
 
@@ -517,10 +532,16 @@ class MonitFleetSummaryCard extends HTMLElement {
       segment.style.display = count > 0 ? "" : "none";
       segment.setAttribute("stroke-dasharray", `${length} ${circumference - length}`);
       segment.setAttribute("stroke-dashoffset", `${-offset}`);
-      segment.querySelector("title").textContent = `${label}: ${count}`;
+      const names = hostsByCategory[key];
+      segment.querySelector("title").textContent =
+        `${label}: ${count}\n${names.join("\n")}`;
       offset += length;
 
-      this.shadowRoot.querySelector(`.legend-row[data-key="${key}"] .count`).textContent = count;
+      const row = this.shadowRoot.querySelector(`.legend-row[data-key="${key}"]`);
+      row.querySelector(".count").textContent = count;
+      row.querySelector(".host-tooltip").textContent =
+        `${count} host${count === 1 ? "" : "s"}\n${names.join("\n")}`;
+      row.setAttribute("aria-label", `${label}: ${count}; ${names.join(", ")}`);
     }
 
     this.shadowRoot.querySelector(".center-count").textContent = total;
@@ -627,7 +648,7 @@ class MonitViewStrategy {
     // ── top section: live summary, then whatever needs attention ──
     const summary = {
       type: "custom:monit-fleet-summary-card",
-      entities: statusIds,
+      hosts: hosts.map(({ name, status }) => ({ name, entity: status })),
     };
 
     // Failing checks of every host, kept current without a page reload.
