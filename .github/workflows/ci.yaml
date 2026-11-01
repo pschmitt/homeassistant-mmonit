@@ -19,4 +19,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pschmitt/ci-workflows/.github/actions/homeassistant-ruff-v5@046b425c742b18fd72903cf67bafbc859b1ff5d4
+      - uses: pschmitt/ci-workflows/.github/actions/homeassistant-ruff-v5@main
