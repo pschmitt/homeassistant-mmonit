@@ -66,7 +66,11 @@ no static config generation needed. Key invariants the strategy must respect:
 ## Code conventions
 
 - No test suite yet; validate manually by reloading the integration in HA.
-- Format with `ruff format`, lint with `ruff check` (config in `.ruff_cache`).
+- Format with `uvx ruff format --check .` and lint with `uvx ruff check .` (configuration in `pyproject.toml`).
 - Keep `models.py` as pure dataclasses — no HA imports.
 - `monit_api.py` parses Monit's XML; `api.py` parses M/Monit's JSON. Keep them independent.
 - Attribute names are defined as constants in `const.py`; add new ones there, not inline.
+
+## Shared CI
+
+CI runs Hassfest and the shared Ruff lint/format action on pushes and pull requests. The action is maintained in [`pschmitt/ci-workflows`](https://github.com/pschmitt/ci-workflows).
