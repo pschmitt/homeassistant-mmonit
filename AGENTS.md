@@ -73,4 +73,4 @@ no static config generation needed. Key invariants the strategy must respect:
 
 ## Shared CI
 
-CI runs Hassfest and the shared Ruff lint/format action on pushes and pull requests. The action is maintained in [`pschmitt/ci-workflows`](https://github.com/pschmitt/ci-workflows).
+CI runs Hassfest and the shared Ruff lint/format action on pushes and pull requests. Before changing CI, check [`pschmitt/ci-workflows`](https://github.com/pschmitt/ci-workflows) for reusable components and preserve these checks.
