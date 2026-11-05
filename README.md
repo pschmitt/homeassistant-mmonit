@@ -1,89 +1,44 @@
-# M/Monit for Home Assistant
+<p align="center">
+  <img src="logo.png" width="128" alt="M/Monit integration logo">
+</p>
 
-`mmonit` is a Home Assistant custom integration for [M/Monit](https://mmonit.com/) and
-[Monit](https://mmonit.com/monit/) that:
+<p align="center">
+  <a href="https://my.home-assistant.io/redirect/marketplace_repository/?owner=pschmitt&amp;repository=homeassistant-mmonit&amp;category=integration"><img src="https://my.home-assistant.io/badges/marketplace_repository.svg" alt="Open this integration in Home Assistant Marketplace"></a>
+</p>
 
-- supports two modes per config entry:
-  - **M/Monit (centralized)**: talks to an M/Monit server and auto-discovers all hosts it collects,
-  - **Monarch**: talks to a [Monarch](https://github.com/pschmitt/monarch) server (an open
-    source M/Monit alternative) with an API token and discovers every host it collects,
-  - **Monit (direct)**: talks directly to the embedded HTTP interface of a single Monit instance —
-    no M/Monit server required,
-- supports multiple servers/agents through config entries,
-- creates one Home Assistant device per monitored host,
-- creates one host-level problem binary sensor per monitored host,
-- creates one sensor entity per check,
-- stores the check state in the entity state and the detailed check output in the `status_message` attribute.
+<h1 align="center">M/Monit for Home Assistant</h1>
 
-## Installation
+<p align="center">Monitor hosts and checks from M/Monit, Monarch or direct Monit agents.</p>
 
-[![Open this integration in Home Assistant Marketplace](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=pschmitt&repository=homeassistant-mmonit&category=integration)
+## Features
 
-### Home Assistant Marketplace
+- **Three backends:** Connect to an M/Monit server, a Monarch server or a direct Monit agent. See [Monitoring](docs/monitoring.md).
+- **Host devices:** Discover monitored hosts and expose a problem binary sensor for each.
+- **Check sensors:** Show check states and detailed output, without treating startup as a failure.
+- **Multiple entries:** Configure separate monitoring servers and agents through the UI.
 
-1. Click the badge above to add this repository. For older installations, add `https://github.com/pschmitt/homeassistant-mmonit` to HACS as a custom repository of type **Integration**.
-2. Install **M/Monit**.
-3. Restart Home Assistant.
+## Install
 
-### Manual
+Use the Marketplace badge above on Home Assistant 2026.11 or later to add this
+repository as a custom integration. On older versions, add it as a HACS
+custom repository of type **Integration**. Install and restart Home Assistant.
+The badge does not imply a public catalog listing. For manual installation,
+copy `custom_components/mmonit/` into Home Assistant's `custom_components/`
+directory and restart.
 
-Copy `custom_components/mmonit` from this repository into:
+## Quick start
 
-```text
-custom_components/mmonit
-```
+1. Add **M/Monit** under **Settings → Devices & services → Add integration**.
+2. Choose **M/Monit**, **Monarch** or **Direct Monit** and enter its URL and credentials.
+3. Inspect the discovered host devices, problem indicators and check sensors.
 
-## Configuration
+## Documentation
 
-The integration is configured from the Home Assistant UI:
+| Topic | Description |
+|-------|-------------|
+| [Monitoring](docs/monitoring.md) | Connection modes, sensor states and dashboard behavior |
 
-1. Go to **Settings -> Devices & services**.
-2. Add **M/Monit**.
-3. Pick the mode:
-   - **M/Monit server (centralized)**: enter the M/Monit URL, username, and password.
-   - **Monit agent (direct)**: enter the URL of the Monit instance's embedded HTTP
-     interface (e.g. `http://myhost:2812`) and the credentials of an
-     `allow user:password` entry from its `set httpd` block.
-   - **Monarch server (API token)**: enter the Monarch URL and an API token. Create the
-     token in Monarch under the user menu (top right) -> **API tokens**. It acts as its
-     owner, so use an account with the *operator* role (or higher) if you want to
-     start/stop/restart services from Home Assistant; *viewer* is read-only.
+## License
 
-Each configured server or agent creates sensor entities for all discovered checks.
-
-### Direct Monit mode notes
-
-- Monit's httpd restricts clients by IP/hostname *and* basic auth. Home Assistant must
-  be covered by an `allow` rule (IP, network range, or hostname) in addition to the
-  `allow user:password` credentials.
-- One config entry maps to one Monit instance (one device in Home Assistant).
-
-## Entity model
-
-- **Device**: one per M/Monit host
-- **Entity**: one binary sensor per host for the overall host status
-- **Entity**: one sensor per host check
-- **State**: the M/Monit check status, such as `OK`, `Waiting`, `Initializing`, or a failure description
-- **Attribute**: `status_message` contains the detailed check output
-- **Attribute**: `led` encodes the check or host state: `0` = failed (red), `1` = initializing/starting (yellow), `2` = OK (green), `3` = not monitored (black)
-
-### Host status binary sensor
-
-The host-level binary sensor uses the `problem` device class:
-
-- **`on`** (problem): at least one check is in a failed state (`led == 0`)
-- **`off`** (no problem): all checks are OK, unmonitored, or in a transient startup state
-
-Checks that are **initializing or starting** (`led == 1`) are not counted as failures. Monit transitions
-checks through this state briefly after a restart; treating them as failures would produce spurious alerts.
-
-## Lovelace dashboard
-
-A JavaScript Lovelace view strategy (`custom:monit`) is maintained separately.
-It dynamically generates a Monit view from the entity registry — no static config generation needed.
-The strategy filters failing checks to `led == 0` only; starting/initializing checks (`led == 1`)
-are shown as amber indicators but are not counted as failures.
-
-## Branding
-
-This repository bundles M/Monit logo assets. M/Monit and related marks belong to their respective owners. The integration code is GPL-3.0, but the bundled third-party logos are not relicensed under GPL.
+[GPL-3.0](LICENSE). M/Monit logos belong to their respective owners and are
+not relicensed under GPL.
